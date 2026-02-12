@@ -1,0 +1,104 @@
+[
+    {
+        "word": "der",
+        "pos": "art",
+        "translation": "the (masc)",
+        "category": "Articles"
+    },
+    {
+        "word": "die",
+        "pos": "art",
+        "translation": "the (fem)",
+        "category": "Articles"
+    },
+    {
+        "word": "das",
+        "pos": "art",
+        "translation": "the (neut)",
+        "category": "Articles"
+    },
+    {
+        "word": "sein",
+        "pos": "verb",
+        "translation": "to be",
+        "category": "Verbs"
+    },
+    {
+        "word": "haben",
+        "pos": "verb",
+        "translation": "to have",
+        "category": "Verbs"
+    },
+    {
+        "word": "Mann",
+        "pos": "noun",
+        "translation": "man",
+        "category": "People"
+    },
+    {
+        "word": "Frau",
+        "pos": "noun",
+        "translation": "woman",
+        "category": "People"
+    },
+    {
+        "word": "Kind",
+        "pos": "noun",
+        "translation": "child",
+        "category": "People"
+    },
+    {
+        "word": "Apfel",
+        "pos": "noun",
+        "translation": "apple",
+        "category": "Food"
+    },
+    {
+        "word": "gehen",
+        "pos": "verb",
+        "translation": "to go",
+        "category": "Verbs"
+    },
+    {
+        "word": "schön",
+        "pos": "adj",
+        "translation": "beautiful",
+        "category": "Adjectives"
+    },
+    {
+        "word": "heute",
+        "pos": "adv",
+        "translation": "today",
+        "category": "Time"
+    },
+    {
+        "word": "und",
+        "pos": "conj",
+        "translation": "and",
+        "category": "Conjunctions"
+    },
+    {
+        "word": "Wasser",
+        "pos": "noun",
+        "translation": "water",
+        "category": "Food"
+    },
+    {
+        "word": "ich",
+        "pos": "pron",
+        "translation": "I",
+        "category": "Pronouns"
+    },
+    {
+        "word": "nicht",
+        "pos": "particle",
+        "translation": "not",
+        "category": "Adverbs"
+    },
+    {
+        "word": "eins",
+        "pos": "num",
+        "translation": "one",
+        "category": "Numbers"
+    }
+]
