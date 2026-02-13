@@ -159,13 +159,14 @@ class PlaylistPlayer @Inject constructor(
         val playlistData = currentPlaylistData ?: return
         if (cardIndex < 0 || cardIndex >= playlistData.cardCount) return
         
-        // Calculate approximate position for this card
-        // This is simplified - ideally we'd track exact positions
-        val totalDuration = exoPlayer?.duration ?: return
-        val seekPosition = (totalDuration * cardIndex) / playlistData.cardCount
+        // Find the first segment that corresponds to this card
+        val segmentIndex = segmentToCardMap.indexOfFirst { it == cardIndex }
         
-        exoPlayer?.seekTo(seekPosition)
-        _currentCardIndex.value = cardIndex
+        if (segmentIndex != -1) {
+             // Seek to the start of that media item
+             exoPlayer?.seekTo(segmentIndex, 0L)
+             _currentCardIndex.value = cardIndex
+        }
     }
     
     fun skipForward() {
@@ -195,8 +196,10 @@ class PlaylistPlayer @Inject constructor(
             mapping.add(currentCard)
             segmentsForCurrentCard++
             
-            // Heuristic: Card gap silence indicates end of card
-            if (segment is PlaylistSegment.Silence && segment.durationMs >= 1000 && segmentsForCurrentCard > 2) {
+            // Heuristic: Card gap is usually ~1500ms, Thinking gap is ~4000ms
+            // We only want to increment on Card Gap (end of card)
+            // Range 1000..3500 filters out Thinking Gap (4000)
+            if (segment is PlaylistSegment.Silence && segment.durationMs in 1000..3500 && segmentsForCurrentCard > 1) {
                 currentCard++
                 segmentsForCurrentCard = 0
             }

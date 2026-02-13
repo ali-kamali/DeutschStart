@@ -65,11 +65,23 @@ class AudioGenerator:
             with NamedTemporaryFile(suffix=".wav", delete=False) as tmp_wav:
                 tmp_wav_path = Path(tmp_wav.name)
             
-            # Simple text-to-speech
+            # Tuning parameters
+            length_scale = "1.0"
+            noise_scale = "0.667"
+            noise_w = "0.8"
+            
+            if language == "en":
+                length_scale = "1.15" # 15% slower for clarity
+                noise_scale = "0.5"   # Less variation (more consistent)
+            
+            # Simple text-to-speech with tuning
             cmd = [
                 str(self.piper_binary),
                 "--model", str(model_path),
-                "--output_file", str(tmp_wav_path)
+                "--output_file", str(tmp_wav_path),
+                "--length_scale", length_scale,
+                "--noise_scale", noise_scale,
+                "--noise_w", noise_w
             ]
             
             # Pipe text to stdin
