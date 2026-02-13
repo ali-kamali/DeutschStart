@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.deutschstart.app.data.local.VocabularyEntity
 import com.deutschstart.app.data.repository.LearningRepository
-import com.deutschstart.app.util.AudioPlayer
+import com.deutschstart.app.util.audio.AudioController
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,7 +30,7 @@ data class StudySessionState(
 @HiltViewModel
 class FlashcardViewModel @Inject constructor(
     private val repository: LearningRepository,
-    private val audioPlayer: AudioPlayer
+    private val audioController: AudioController
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StudySessionState(isLoading = true))
@@ -50,6 +50,11 @@ class FlashcardViewModel @Inject constructor(
             val items = repository.getDueItems(10)
             sessionQueue = items.toMutableList()
             totalSize = items.size
+            
+            // Preload audio for all cards in session
+            val audioPaths = items.mapNotNull { it.audioLearnPath.takeIf { path -> path.isNotBlank() } }
+            audioController.preloadVocabularyAudio(audioPaths)
+            
             loadNextCard()
         }
     }
@@ -95,15 +100,11 @@ class FlashcardViewModel @Inject constructor(
 
     fun playAudio() {
         val card = _state.value.currentCard ?: return
-        viewModelScope.launch {
-            audioPlayer.playFile(card.audioLearnPath)
-        }
+        audioController.playVocabularyAudio(card.audioLearnPath)
     }
 
     fun playSentenceAudio(path: String) {
-        viewModelScope.launch {
-            audioPlayer.playFile(path)
-        }
+        audioController.playSentenceAudio(path)
     }
 
     fun rateCard(quality: Int) {
@@ -116,7 +117,7 @@ class FlashcardViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        audioPlayer.stop()
+        audioController.release()
     }
 
     private fun parseSentences(json: String): List<Map<String, String>> {
