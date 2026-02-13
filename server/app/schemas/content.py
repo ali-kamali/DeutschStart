@@ -10,6 +10,12 @@ class VocabularyItemInput(BaseModel):
     translation_en: str = Field(alias="translation")
     part_of_speech: str = Field(alias="pos")
     category: str
+    
+    # Ordering fields
+    priority: Optional[int] = 4
+    theme: Optional[str] = None
+    order_index: Optional[int] = None
+    
     gender: Optional[str] = None
     plural_form: Optional[str] = None
     example_sentences: Optional[List[Dict[str, str]]] = Field(
@@ -17,6 +23,8 @@ class VocabularyItemInput(BaseModel):
         description="List of sentence objects with 'german', 'english' keys",
     )
     gender_mnemonic: Optional[str] = None
+    kaikki_data: Optional[Dict[str, Any]] = None
+    kaikki_audio_path: Optional[str] = None
 
 
 class VocabularyImportRequest(BaseModel):

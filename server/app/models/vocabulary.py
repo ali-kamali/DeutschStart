@@ -24,11 +24,19 @@ class VocabularyItem(Base):
     
     frequency_rank = Column(Integer, index=True)
     category = Column(String, index=True)
+    
+    # Ordering & Spaced Repetition Fields
+    priority = Column(Integer, index=True, default=4) # 1=High, 4=Low
+    theme = Column(String, index=True) # e.g. "Food", "Home"
+    order_index = Column(Integer, index=True) # Deterministic order for the pack
+    
     gender_mnemonic = Column(String, nullable=True)
     
     # Audio paths (relative to content pack root)
     audio_learn_path = Column(String, nullable=True)
     audio_review_path = Column(String, nullable=True)
+    kaikki_audio_path = Column(String, nullable=True)
+    kaikki_data = Column(JSON, nullable=True)
     
     # Metadata
     generation_source = Column(String) # manual / api

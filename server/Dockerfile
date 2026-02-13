@@ -5,6 +5,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc libpq-dev && \
@@ -12,7 +13,8 @@ RUN apt-get update && \
 
 COPY pyproject.toml poetry.lock* ./
 
-RUN pip install poetry && \
+RUN pip install --upgrade pip && \
+    pip install poetry && \
     poetry config virtualenvs.create false && \
     poetry install --without dev --no-root --no-interaction --no-ansi
 
@@ -23,6 +25,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
 # ffmpeg for audio processing

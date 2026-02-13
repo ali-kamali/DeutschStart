@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Player.REPEAT_MODE_ALL
+import androidx.media3.common.Player.REPEAT_MODE_OFF
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource
 import androidx.media3.exoplayer.source.MediaSource
@@ -40,6 +43,18 @@ class PlaylistPlayer @Inject constructor(
     
     private val _progress = MutableStateFlow(0f)
     val progress: StateFlow<Float> = _progress
+
+    private val _germanSpeed = MutableStateFlow(1.0f)
+    val germanSpeed: StateFlow<Float> = _germanSpeed
+    
+    private val _englishSpeed = MutableStateFlow(1.0f)
+    val englishSpeed: StateFlow<Float> = _englishSpeed
+
+    private val _currentEffectiveSpeed = MutableStateFlow(1.0f)
+    val currentEffectiveSpeed: StateFlow<Float> = _currentEffectiveSpeed
+
+    private val _loopEnabled = MutableStateFlow(false)
+    val loopEnabled: StateFlow<Boolean> = _loopEnabled
     
     // Map each segment index to its card index
     private var segmentToCardMap = listOf<Int>()
@@ -54,7 +69,7 @@ class PlaylistPlayer @Inject constructor(
             val player = ExoPlayer.Builder(context).build()
             exoPlayer = player
             
-            // Build segment-to-card mapping
+            // Build segment-to-card and type mapping
             buildSegmentMapping(playlistData)
             
             // Build media source from playlist segments
@@ -62,6 +77,12 @@ class PlaylistPlayer @Inject constructor(
             
             player.setMediaSource(mediaSource)
             player.prepare()
+            
+            // Apply loop mode
+            player.repeatMode = if (_loopEnabled.value) REPEAT_MODE_ALL else REPEAT_MODE_OFF
+            
+            // Apply initial speed
+            updatePlaybackSpeedForCurrentSegment()
             
             // Set up listener for state changes
             player.addListener(object : Player.Listener {
@@ -111,6 +132,11 @@ class PlaylistPlayer @Inject constructor(
                 
                 override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                     updateCardIndex()
+                    updatePlaybackSpeedForCurrentSegment()
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    _playbackState.value = PlaybackState.Error("Playback error: ${error.message}")
                 }
             })
             
@@ -146,6 +172,38 @@ class PlaylistPlayer @Inject constructor(
         // Use stable ConcatenatingMediaSource API
         return ConcatenatingMediaSource(*mediaSources.toTypedArray())
     }
+
+    fun setLoopEnabled(enabled: Boolean) {
+        _loopEnabled.value = enabled
+        exoPlayer?.repeatMode = if (enabled) REPEAT_MODE_ALL else REPEAT_MODE_OFF
+    }
+
+    fun setGermanSpeed(speed: Float) {
+        _germanSpeed.value = speed
+        updatePlaybackSpeedForCurrentSegment()
+    }
+    
+    fun setEnglishSpeed(speed: Float) {
+        _englishSpeed.value = speed
+        updatePlaybackSpeedForCurrentSegment()
+    }
+    
+    private fun updatePlaybackSpeedForCurrentSegment() {
+        val player = exoPlayer ?: return
+        val index = player.currentMediaItemIndex
+        
+        val type = getSegmentType(index)
+        val targetSpeed = when (type) {
+            SegmentType.GERMAN_WORD, SegmentType.SENTENCE, SegmentType.KAIKKI_AUDIO -> _germanSpeed.value
+            SegmentType.TRANSLATION -> _englishSpeed.value
+            else -> 1.0f
+        }
+        
+        if (player.playbackParameters.speed != targetSpeed) {
+            player.playbackParameters = PlaybackParameters(targetSpeed)
+            _currentEffectiveSpeed.value = targetSpeed
+        }
+    }
     
     fun play() {
         exoPlayer?.play()
@@ -153,6 +211,35 @@ class PlaylistPlayer @Inject constructor(
     
     fun pause() {
         exoPlayer?.pause()
+    }
+    
+    /**
+     * Plays a single audio file immediately, pausing the playlist if active.
+     */
+    fun playSingleAudio(relativePath: String) {
+        // 1. Pause playlist
+        pause()
+        
+        try {
+            val file = if (relativePath.startsWith("/")) {
+                java.io.File(relativePath) // Already absolute
+            } else {
+                java.io.File(context.filesDir, "content/$relativePath")
+            }
+            if (file.exists()) {
+                val mp = android.media.MediaPlayer()
+                mp.setDataSource(file.absolutePath)
+                mp.prepare()
+                mp.start()
+                mp.setOnCompletionListener { 
+                    it.release() 
+                }
+            } else {
+               android.util.Log.e("PlaylistPlayer", "File not found: ${file.absolutePath}")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PlaylistPlayer", "Failed to play single audio: $relativePath", e)
+        }
     }
     
     fun seekToCard(cardIndex: Int) {
@@ -229,6 +316,14 @@ class PlaylistPlayer @Inject constructor(
         
         // Also update card index
         updateCardIndex()
+    }
+    
+    private fun getSegmentType(index: Int): SegmentType? {
+        val segments = currentPlaylistData?.segments ?: return null
+        if (index < 0 || index >= segments.size) return null
+        
+        val segment = segments[index]
+        return if (segment is PlaylistSegment.Audio) segment.type else null
     }
     
     fun release() {

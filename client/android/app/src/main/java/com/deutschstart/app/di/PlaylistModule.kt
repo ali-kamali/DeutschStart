@@ -15,6 +15,6 @@ object PlaylistModule {
     @Provides
     @ViewModelScoped
     fun providePlaylistBuilder(): PlaylistBuilder {
-        return PlaylistBuilder(PlaylistConfig())
+        return PlaylistBuilder()
     }
 }

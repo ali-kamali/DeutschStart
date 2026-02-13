@@ -57,7 +57,8 @@ class ContentPackager:
         self.audio_dir = self.staging_dir / "audio"
         self.vocab_audio_dir = self.audio_dir / "vocab"
         self.sentence_audio_dir = self.audio_dir / "sentences"
-        self.english_audio_dir = self.audio_dir / "english"  # NEW
+        self.english_audio_dir = self.audio_dir / "english"
+        self.kaikki_audio_dir = self.audio_dir / "kaikki"
         
         self._init_staging()
         
@@ -67,10 +68,11 @@ class ContentPackager:
             time.sleep(0.1) # Windows Safety
         self.vocab_audio_dir.mkdir(parents=True, exist_ok=True)
         self.sentence_audio_dir.mkdir(parents=True, exist_ok=True)
-        self.english_audio_dir.mkdir(parents=True, exist_ok=True)  # NEW
+        self.english_audio_dir.mkdir(parents=True, exist_ok=True)
+        self.kaikki_audio_dir.mkdir(parents=True, exist_ok=True)
 
     def generate_pack(self, version_tag: str = "v1"):
-        items = self.db.query(VocabularyItem).all()
+        items = self.db.query(VocabularyItem).order_by(VocabularyItem.order_index).all()
         current_time = int(datetime.now().timestamp())
         
         pack_data = []
@@ -226,7 +228,10 @@ class ContentPackager:
                 "plural": item.plural_form,
                 "pos": item.part_of_speech,
                 "trans_en": item.translation_en,
-                "sentences": processed_sentences
+                "sentences": processed_sentences,
+                "priority": item.priority,
+                "theme": item.theme,
+                "order_index": item.order_index
             }
             if audio_rel_path:
                 entry["audio"] = audio_rel_path
@@ -234,6 +239,31 @@ class ContentPackager:
                 entry["audio_en"] = en_audio_rel_path
                 
             pack_data.append(entry)
+
+            # 4. Kaikki Audio (Pre-downloaded)
+            if item.kaikki_audio_path:
+                # kaikki_audio_path is relative: audio/kaikki/filename.ogg
+                # The file should exist in the data/processed/audio/kaikki dir on the server
+                # We need to map this.
+                # Assuming item.kaikki_audio_path is "audio/kaikki/foo.ogg"
+                # The file is at self.output_dir.parent / "audio" / "kaikki" / "foo.ogg"
+                # Wait, output_dir is "data/processed/packs". parent is "data/processed".
+                
+                # We need a robust way to find source file. 
+                # PROCESSED_DIR/audio/kaikki/...
+                processed_dir = self.output_dir.parent 
+                source_full_path = processed_dir / item.kaikki_audio_path
+                
+                if source_full_path.exists():
+                    # Destination in zip
+                    staging_kaikki_path = self.staging_dir / item.kaikki_audio_path
+                    staging_kaikki_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(source_full_path, staging_kaikki_path)
+                    
+                    entry["kaikki_audio"] = item.kaikki_audio_path
+            
+            if item.kaikki_data:
+                entry["kaikki_data"] = item.kaikki_data
 
         # 3. Write data.json
         with open(self.staging_dir / "vocabulary.json", "w", encoding="utf-8") as f:

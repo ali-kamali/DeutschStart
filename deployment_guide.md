@@ -90,3 +90,34 @@ For a public server, you should secure the API:
     ```
 
 4.  **Environment Variables**: Create a `.env` file in the server directory to store secrets instead of hardcoding them.
+
+---
+
+## 🛠 Troubleshooting
+
+### "KeyError: 'ContainerConfig'" Error
+If you see an error like `KeyError: 'ContainerConfig'` when running `docker-compose up`, it means the existing containers are in a state that your version of Docker Compose cannot understand.
+
+**Fix 1: Use the Fix Script**
+We have included a script to fix this automatically. Run this on your server:
+```bash
+# Make it executable
+chmod +x scripts/fix_deployment.sh
+
+# Run it
+./scripts/fix_deployment.sh
+```
+
+**Fix 2: Try Docker Compose V2**
+The error comes from the old `docker-compose` (v1). Check if your server has the new version (v2) installed which uses a space instead of a dash:
+```bash
+# Try using 'docker compose' (with a space)
+docker compose up -d --build
+```
+
+**Fix 3: Manual Cleanup**
+If the script doesn't work, manually remove all containers:
+```bash
+docker rm -f $(docker ps -a -q)
+```
+Then restart.

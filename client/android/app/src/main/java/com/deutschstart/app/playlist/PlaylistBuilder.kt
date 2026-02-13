@@ -1,6 +1,7 @@
 package com.deutschstart.app.playlist
 
 import com.deutschstart.app.data.local.VocabularyEntity
+import javax.inject.Inject
 
 /**
  * Represents a segment in the playlist audio stream.
@@ -12,6 +13,7 @@ sealed class PlaylistSegment {
 
 enum class SegmentType {
     GERMAN_WORD,      // Der Tisch
+    KAIKKI_AUDIO,     // Human pronunciation from Kaikki
     TRANSLATION,      // "the table"
     SENTENCE          // German example sentence
 }
@@ -24,7 +26,8 @@ data class PlaylistConfig(
     val cardGapMs: Int = 1500,             // 1.5 seconds between cards
     val mode: PlaylistMode = PlaylistMode.GERMAN_TO_ENGLISH,
     val includeSentences: Boolean = true,
-    val includeArticles: Boolean = true     // Whether to play articles separately
+    val includeArticles: Boolean = true,     // Whether to play articles separately
+    val includeKaikki: Boolean = true        // Play human audio if available
 )
 
 enum class PlaylistMode {
@@ -33,24 +36,25 @@ enum class PlaylistMode {
     GERMAN_ONLY          // Just German pronunciation practice
 }
 
+
 /**
  * Builds a sequential playlist from flashcards with configurable patterns.
  */
-class PlaylistBuilder(private val config: PlaylistConfig = PlaylistConfig()) {
+class PlaylistBuilder @Inject constructor() {
     
-    fun buildPlaylist(cards: List<VocabularyEntity>): PlaylistData {
+    fun buildPlaylist(cards: List<VocabularyEntity>, config: PlaylistConfig): PlaylistData {
         val segments = mutableListOf<PlaylistSegment>()
         
         cards.forEachIndexed { index, card ->
             when (config.mode) {
                 PlaylistMode.GERMAN_TO_ENGLISH -> {
-                    addGermanToEnglishSequence(segments, card)
+                    addGermanToEnglishSequence(segments, card, config)
                 }
                 PlaylistMode.ENGLISH_TO_GERMAN -> {
-                    addEnglishToGermanSequence(segments, card)
+                    addEnglishToGermanSequence(segments, card, config)
                 }
                 PlaylistMode.GERMAN_ONLY -> {
-                    addGermanOnlySequence(segments, card)
+                    addGermanOnlySequence(segments, card, config)
                 }
             }
             
@@ -67,10 +71,16 @@ class PlaylistBuilder(private val config: PlaylistConfig = PlaylistConfig()) {
         )
     }
     
-    private fun addGermanToEnglishSequence(segments: MutableList<PlaylistSegment>, card: VocabularyEntity) {
+    private fun addGermanToEnglishSequence(segments: MutableList<PlaylistSegment>, card: VocabularyEntity, config: PlaylistConfig) {
         // 1. German word
         if (card.audioLearnPath.isNotBlank()) {
             segments.add(PlaylistSegment.Audio(card.audioLearnPath, SegmentType.GERMAN_WORD))
+        }
+
+        // 1a. Kaikki Audio (Optional Human Voice)
+        if (config.includeKaikki && !card.kaikkiAudioPath.isNullOrBlank()) {
+             segments.add(PlaylistSegment.Silence(500))
+             segments.add(PlaylistSegment.Audio(card.kaikkiAudioPath, SegmentType.KAIKKI_AUDIO))
         }
         
         // 2. Thinking gap
@@ -87,7 +97,7 @@ class PlaylistBuilder(private val config: PlaylistConfig = PlaylistConfig()) {
         }
     }
     
-    private fun addEnglishToGermanSequence(segments: MutableList<PlaylistSegment>, card: VocabularyEntity) {
+    private fun addEnglishToGermanSequence(segments: MutableList<PlaylistSegment>, card: VocabularyEntity, config: PlaylistConfig) {
         // 1. English translation
         if (card.audioEnPath.isNotBlank()) {
             segments.add(PlaylistSegment.Audio(card.audioEnPath, SegmentType.TRANSLATION))
@@ -100,6 +110,11 @@ class PlaylistBuilder(private val config: PlaylistConfig = PlaylistConfig()) {
         if (card.audioLearnPath.isNotBlank()) {
             segments.add(PlaylistSegment.Audio(card.audioLearnPath, SegmentType.GERMAN_WORD))
         }
+
+        if (config.includeKaikki && !card.kaikkiAudioPath.isNullOrBlank()) {
+             segments.add(PlaylistSegment.Silence(500))
+             segments.add(PlaylistSegment.Audio(card.kaikkiAudioPath, SegmentType.KAIKKI_AUDIO))
+        }
         
         // 4. Example sentence (if enabled)
         if (config.includeSentences) {
@@ -107,10 +122,15 @@ class PlaylistBuilder(private val config: PlaylistConfig = PlaylistConfig()) {
         }
     }
     
-    private fun addGermanOnlySequence(segments: MutableList<PlaylistSegment>, card: VocabularyEntity) {
+    private fun addGermanOnlySequence(segments: MutableList<PlaylistSegment>, card: VocabularyEntity, config: PlaylistConfig) {
         // Just German word + sentence (for pronunciation practice)
         if (card.audioLearnPath.isNotBlank()) {
             segments.add(PlaylistSegment.Audio(card.audioLearnPath, SegmentType.GERMAN_WORD))
+        }
+        
+        if (config.includeKaikki && !card.kaikkiAudioPath.isNullOrBlank()) {
+             segments.add(PlaylistSegment.Silence(500))
+             segments.add(PlaylistSegment.Audio(card.kaikkiAudioPath, SegmentType.KAIKKI_AUDIO))
         }
         
         if (config.includeSentences) {

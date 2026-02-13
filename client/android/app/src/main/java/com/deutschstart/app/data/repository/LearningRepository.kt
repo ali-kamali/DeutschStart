@@ -16,9 +16,9 @@ class LearningRepository @Inject constructor(
     private val dao: VocabularyDao,
     private val fsrs: FsrsAlgorithm
 ) {
-    suspend fun getDueItems(limit: Int = 10): List<VocabularyEntity> {
+    suspend fun getDueItems(limit: Int = 10, offset: Int = 0): List<VocabularyEntity> {
         val now = System.currentTimeMillis()
-        return dao.getItemsForReview(now, limit)
+        return dao.getItemsForReview(now, limit, offset)
     }
 
     suspend fun processResult(item: VocabularyEntity, rating: Int) {

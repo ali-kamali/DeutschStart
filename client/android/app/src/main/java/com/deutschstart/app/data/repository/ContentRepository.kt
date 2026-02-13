@@ -167,11 +167,14 @@ data class VocabularyJsonItem(
     val trans_en: String,
     val audio: String?,
     val audio_en: String?,  // NEW: English translation audio
-    val sentences: List<Map<String, Any>>?
+    val sentences: List<Map<String, Any>>?,
+    val kaikki_audio: String?,
+    val kaikki_data: Map<String, Any>?
 ) {
     fun toEntity(basePath: String, gson: Gson): VocabularyEntity {
         val localAudioPath = audio?.let { "$basePath/$it" } ?: ""
         val localEnAudioPath = audio_en?.let { "$basePath/$it" } ?: ""
+        val localKaikkiAudioPath = kaikki_audio?.let { "$basePath/$it" }
 
         val exSentencesList = sentences?.map {
             mapOf(
@@ -201,7 +204,9 @@ data class VocabularyJsonItem(
             frequencyRank = 0,
             category = "General",
             genderMnemonic = null,
-            lastReviewedAt = null
+            lastReviewedAt = null,
+            kaikkiAudioPath = localKaikkiAudioPath,
+            kaikkiDataJson = kaikki_data?.let { gson.toJson(it) }
         )
     }
 }

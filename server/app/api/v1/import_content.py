@@ -84,6 +84,20 @@ async def import_vocabulary(request: VocabularyImportRequest, db: Session = Depe
             db_item.gender_mnemonic = item.gender_mnemonic
         if item.example_sentences:
             db_item.example_sentences = item.example_sentences
+        
+        # Ordering Fields
+        if item.priority:
+            db_item.priority = item.priority
+        if item.theme:
+            db_item.theme = item.theme
+        if item.order_index is not None:
+            db_item.order_index = item.order_index
+        
+        # Kaikki Data
+        if item.kaikki_data:
+            db_item.kaikki_data = item.kaikki_data
+        if item.kaikki_audio_path:
+            db_item.kaikki_audio_path = item.kaikki_audio_path
 
         # Metadata
         db_item.generation_source = request.source_name

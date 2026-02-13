@@ -32,5 +32,7 @@ data class VocabularyEntity(
     val reps: Int = 0,
     val lapses: Int = 0,
     // Legacy/Auxiliary
-    val lastReviewedAt: Long? = null
+    val lastReviewedAt: Long? = null,
+    val kaikkiAudioPath: String? = null,
+    val kaikkiDataJson: String? = null
 )

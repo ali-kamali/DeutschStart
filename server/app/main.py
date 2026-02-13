@@ -35,3 +35,5 @@ async def health_check():
 async def root():
     return {"message": "Welcome to DeutschStart Content Server API"}
 
+# Forced reload trigger
+

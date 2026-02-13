@@ -39,9 +39,9 @@ interface VocabularyDao {
         ORDER BY 
             CASE WHEN state = 2 THEN 0 ELSE 1 END,
             scheduledDate ASC
-        LIMIT :limit
+        LIMIT :limit OFFSET :offset
     """)
-    suspend fun getItemsForReview(now: Long, limit: Int): List<VocabularyEntity>
+    suspend fun getItemsForReview(now: Long, limit: Int, offset: Int = 0): List<VocabularyEntity>
 
     // Count learned (State > 0)
     @Query("SELECT COUNT(*) FROM vocabulary WHERE state > 0")
