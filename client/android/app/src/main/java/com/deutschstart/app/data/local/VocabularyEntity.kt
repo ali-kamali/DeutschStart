@@ -17,10 +17,19 @@ data class VocabularyEntity(
     val audioLearnPath: String,
     val audioReviewPath: String,
     val translationEn: String,
-    val exampleSentencesJson: String, // Stored as JSON string
+    val exampleSentencesJson: String,
     val frequencyRank: Int,
     val category: String,
     val genderMnemonic: String?,
-    val masteryLevel: Int = 0,
+    // FSRS v4 fields
+    val stability: Double = 0.0,
+    val difficulty: Double = 0.0,
+    val elapsedDays: Int = 0,
+    val scheduledDays: Int = 0,
+    val state: Int = 0, 
+    val scheduledDate: Long? = null,
+    val reps: Int = 0,
+    val lapses: Int = 0,
+    // Legacy/Auxiliary
     val lastReviewedAt: Long? = null
 )

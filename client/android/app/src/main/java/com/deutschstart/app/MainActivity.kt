@@ -69,7 +69,13 @@ fun AppNavigation() {
             )
         }
         composable("content") {
-            ContentScreen()
+            ContentScreen(
+                onStartLearning = {
+                    navController.navigate("flashcards") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                }
+            )
         }
         composable("flashcards") {
             FlashcardScreen(

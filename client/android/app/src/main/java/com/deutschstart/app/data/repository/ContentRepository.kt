@@ -15,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -46,7 +47,14 @@ class ContentRepository @Inject constructor(
                     _status.value =
                         ContentStatus.UpdateAvailable(metadata.filename, metadata.size)
                 } else {
-                    _status.value = ContentStatus.UpToDate
+                    // Check if DB is actually populated (e.g. after destructive migration)
+                    val count = dao.getTotalCount().first()
+                    if (count == 0) {
+                        prefs.edit().remove("current_version").apply()
+                        _status.value = ContentStatus.UpdateAvailable(metadata.filename, metadata.size)
+                    } else {
+                        _status.value = ContentStatus.UpToDate
+                    }
                 }
             } else {
                 _status.value =
@@ -190,7 +198,6 @@ data class VocabularyJsonItem(
             frequencyRank = 0,
             category = "General",
             genderMnemonic = null,
-            masteryLevel = 0,
             lastReviewedAt = null
         )
     }

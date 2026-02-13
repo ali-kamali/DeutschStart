@@ -1,29 +1,103 @@
 package com.deutschstart.app.data.repository
 
+import com.deutschstart.app.data.local.FsrsLogEntity
 import com.deutschstart.app.data.local.VocabularyDao
 import com.deutschstart.app.data.local.VocabularyEntity
+import com.deutschstart.app.util.fsrs.FsrsAlgorithm
+import com.deutschstart.app.util.fsrs.FsrsCard
+import com.deutschstart.app.util.fsrs.Rating
+import com.deutschstart.app.util.fsrs.State
+import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class LearningRepository @Inject constructor(
-    private val dao: VocabularyDao
+    private val dao: VocabularyDao,
+    private val fsrs: FsrsAlgorithm
 ) {
     suspend fun getDueItems(limit: Int = 10): List<VocabularyEntity> {
         val now = System.currentTimeMillis()
         return dao.getItemsForReview(now, limit)
     }
 
-    suspend fun processResult(item: VocabularyEntity, quality: Int) {
-        // Quality: 1 (Again), 2 (Hard), 3 (Good), 4 (Easy)
-        val newMastery = when (quality) {
-            1 -> 0                                          // Again: reset
-            2 -> maxOf(item.masteryLevel - 1, 0)            // Hard: demote one level
-            3 -> item.masteryLevel + 1                      // Good: promote one level
-            4 -> item.masteryLevel + 2                      // Easy: skip a level
-            else -> item.masteryLevel
+    suspend fun processResult(item: VocabularyEntity, rating: Int) {
+        // Map UI rating (1..4) to FSRS Rating enum
+        val fsrsRating = when (rating) {
+            1 -> Rating.Again
+            2 -> Rating.Hard
+            3 -> Rating.Good
+            4 -> Rating.Easy
+            else -> Rating.Good
         }
 
-        dao.updateProgress(item.id, newMastery, System.currentTimeMillis())
+        // Convert Entity -> FsrsCard
+        val card = FsrsCard(
+            due = item.scheduledDate?.let { Date(it) } ?: Date(),
+            stability = item.stability,
+            difficulty = item.difficulty,
+            elapsedDays = item.elapsedDays,
+            scheduledDays = item.scheduledDays,
+            reps = item.reps,
+            lapses = item.lapses,
+            state = State.fromInt(item.state),
+            lastReview = item.lastReviewedAt?.let { Date(it) }
+        )
+
+        val now = Date()
+        val schedulingInfo = fsrs.schedule(card, now)[fsrsRating] ?: return
+
+        // Convert Result -> Entity
+        val newCard = schedulingInfo.card
+        val newItem = item.copy(
+            stability = newCard.stability,
+            difficulty = newCard.difficulty,
+            elapsedDays = newCard.elapsedDays,
+            scheduledDays = newCard.scheduledDays,
+            reps = newCard.reps,
+            lapses = newCard.lapses,
+            state = newCard.state.value,
+            scheduledDate = newCard.due.time,
+            lastReviewedAt = now.time
+        )
+
+        // Log the review
+        val reviewLog = schedulingInfo.reviewLog
+        val logEntity = FsrsLogEntity(
+            cardId = item.id,
+            rating = fsrsRating.value,
+            scheduledDays = reviewLog.scheduledDays,
+            elapsedDays = reviewLog.elapsedDays,
+            reviewDuration = 0, // TODO: Track duration in UI
+            state = reviewLog.state.value,
+            reviewTime = now.time
+        )
+
+        dao.update(newItem)
+        dao.insertLog(logEntity)
+    }
+
+    fun predictIntervals(item: VocabularyEntity): Map<Int, Int> {
+        val card = FsrsCard(
+            due = item.scheduledDate?.let { Date(it) } ?: Date(),
+            stability = item.stability,
+            difficulty = item.difficulty,
+            elapsedDays = item.elapsedDays,
+            scheduledDays = item.scheduledDays,
+            reps = item.reps,
+            lapses = item.lapses,
+            state = State.fromInt(item.state),
+            lastReview = item.lastReviewedAt?.let { Date(it) }
+        )
+        
+        val now = Date()
+        val schedule = fsrs.schedule(card, now)
+        
+        return mapOf(
+            1 to (schedule[Rating.Again]?.card?.scheduledDays ?: 0),
+            2 to (schedule[Rating.Hard]?.card?.scheduledDays ?: 0),
+            3 to (schedule[Rating.Good]?.card?.scheduledDays ?: 0),
+            4 to (schedule[Rating.Easy]?.card?.scheduledDays ?: 0)
+        )
     }
 }

@@ -20,7 +20,8 @@ data class StudySessionState(
     val isSessionComplete: Boolean = false,
     val sentences: List<Map<String, String>> = emptyList(),
     val cardsCompleted: Int = 0,
-    val totalSessionSize: Int = 0
+    val totalSessionSize: Int = 0,
+    val intervals: Map<Int, Int> = emptyMap() // key: rating(1-4), value: days
 ) {
     val progress: Float
         get() = if (totalSessionSize > 0) cardsCompleted.toFloat() / totalSessionSize else 0f
@@ -78,7 +79,17 @@ class FlashcardViewModel @Inject constructor(
     }
 
     fun flipCard() {
-        _state.value = _state.value.copy(isFlipped = true)
+        val card = _state.value.currentCard
+        val intervals = if (card != null) {
+            repository.predictIntervals(card)
+        } else {
+            emptyMap()
+        }
+        
+        _state.value = _state.value.copy(
+            isFlipped = true,
+            intervals = intervals
+        )
         playAudio()
     }
 

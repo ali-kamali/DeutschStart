@@ -11,7 +11,8 @@ import com.deutschstart.app.data.repository.ContentStatus
 
 @Composable
 fun ContentScreen(
-    viewModel: ContentViewModel = hiltViewModel()
+    viewModel: ContentViewModel = hiltViewModel(),
+    onStartLearning: () -> Unit = {}
 ) {
     val status by viewModel.status.collectAsState()
     
@@ -35,9 +36,16 @@ fun ContentScreen(
                 Text("Checking for updates...")
             }
             is ContentStatus.UpToDate -> {
-                Text("Content is up to date!")
+                Text("Content is up to date!", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = { viewModel.checkForUpdates() }) {
+                Button(
+                    onClick = onStartLearning,
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("Start Learning")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { viewModel.checkForUpdates() }) {
                     Text("Check Again")
                 }
             }
@@ -63,8 +71,11 @@ fun ContentScreen(
                 Text("Installation Complete!", color = MaterialTheme.colorScheme.primary)
                 Text("Your new vocabulary is ready.")
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = { viewModel.checkForUpdates() }) {
-                    Text("Done")
+                Button(
+                    onClick = onStartLearning,
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("Start Learning")
                 }
             }
             is ContentStatus.Error -> {

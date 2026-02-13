@@ -12,6 +12,11 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
+fun formatInterval(days: Int?): String {
+    if (days == null) return "-"
+    return if (days == 0) "Now" else "${days}d"
+}
+
 @Composable
 fun FlashcardScreen(
     viewModel: FlashcardViewModel = hiltViewModel(),
@@ -148,25 +153,45 @@ fun FlashcardScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Again") }
+                ) { 
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Again")
+                        Text(formatInterval(state.intervals[1]), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 Button(
                     onClick = { viewModel.rateCard(2) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary
                     )
-                ) { Text("Hard") }
+                ) { 
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Hard")
+                        Text(formatInterval(state.intervals[2]), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 Button(
                     onClick = { viewModel.rateCard(3) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
-                ) { Text("Good") }
+                ) { 
+                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Good")
+                        Text(formatInterval(state.intervals[3]), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 Button(
                     onClick = { viewModel.rateCard(4) },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.tertiary
                     )
-                ) { Text("Easy") }
+                ) { 
+                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Easy")
+                        Text(formatInterval(state.intervals[4]), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         } else {
             Button(
