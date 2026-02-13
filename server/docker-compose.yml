@@ -9,6 +9,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=deutschstart
+      - POSTGRES_HOST=db
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/deutschstart
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
@@ -28,6 +29,7 @@ services:
     command: celery -A app.celery_app:celery_app worker --loglevel=info -Q content_pipeline
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/deutschstart
+      - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=minioadmin

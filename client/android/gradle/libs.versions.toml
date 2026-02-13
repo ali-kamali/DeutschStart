@@ -13,7 +13,7 @@ hilt = "2.51.1"
 # Room
 room = "2.6.1"
 # SQLCipher
-sqlcipher = "4.6.0"
+sqlcipher = "4.6.1"
 # Navigation
 navigation = "2.7.7"
 # KSP - Must match Kotlin version

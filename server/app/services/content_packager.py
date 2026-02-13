@@ -12,6 +12,23 @@ import time
 
 logger = logging.getLogger(__name__)
 
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
+
+# Helper for parallel execution needs to be top-level
+def _generate_audio_task(args):
+    text, output_path = args
+    if output_path.exists():
+        return True, str(output_path)
+        
+    # Initialize generator inside the worker process
+    gen = AudioGenerator()
+    try:
+        gen.generate_audio(text, output_path)
+        return True, str(output_path)
+    except Exception as e:
+        return False, f"Error generating '{text}': {str(e)}"
+
 class ContentPackager:
     """
     Generates downloadable content packs for Android client.
@@ -53,38 +70,95 @@ class ContentPackager:
         current_time = int(datetime.now().timestamp())
         
         pack_data = []
+        tasks = [] # List of (text, path) tuples
+        
+        # Pass 1: Identification & Task Collection
+        logger.info(f"Scanning {len(items)} items for audio generation...")
         
         for item in items:
-            # 1. Generate/Fetch Vocab Audio
+            # --- Vocab Audio ---
             vocab_filename = f"{item.id}.ogg"
+            if item.audio_learn_path:
+                existing_name = Path(item.audio_learn_path).name
+                if (self.cache_vocab_dir / existing_name).exists():
+                     vocab_filename = existing_name
+
+            cached_path = self.cache_vocab_dir / vocab_filename
+            
+            if not cached_path.exists():
+                text = item.word
+                if item.article:
+                    text = f"{item.article} {item.word}"
+                tasks.append((text, cached_path))
+
+            # --- Sentence Audio ---
+            sentences = item.example_sentences
+            if isinstance(sentences, str):
+                try: sentences = json.loads(sentences)
+                except: sentences = []
+            
+            if sentences:
+                for idx, sent in enumerate(sentences):
+                    sent_text = sent.get("german", "")
+                    if not sent_text: continue
+                    
+                    sent_filename = f"{item.id}_sent_{idx+1}.ogg"
+                    if sent.get("original_audio") or sent.get("audio_path"):
+                         raw_path = sent.get("original_audio") or sent.get("audio_path")
+                         existing_sent_name = Path(raw_path).name
+                         if (self.cache_sent_dir / existing_sent_name).exists():
+                             sent_filename = existing_sent_name
+                         elif (self.cache_vocab_dir / existing_sent_name).exists():
+                             # Fallback if mixed
+                             pass
+
+                    cached_sent_path = self.cache_sent_dir / sent_filename
+                    
+                    if not cached_sent_path.exists():
+                        tasks.append((sent_text, cached_sent_path))
+
+        # Pass 2: Parallel Generation
+        if tasks:
+            logger.info(f"Generating audio for {len(tasks)} missing files in parallel...")
+            # Use appropriate number of workers (e.g., CPU count)
+            # Since we are IO/CPU bound (piper is fast, ffmpeg is CPU), use CPU count.
+            max_workers = os.cpu_count() or 4
+            
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(_generate_audio_task, task) for task in tasks]
+                
+                for future in as_completed(futures):
+                    success, msg = future.result()
+                    if not success:
+                        logger.error(f"Gen Failed: {msg}")
+        else:
+            logger.info("All audio files cached. Skipping generation.")
+
+        # Pass 3: Assembly (Copying files)
+        logger.info("Assembling pack...")
+        
+        for item in items:
+            # 1. Vocab Audio
+            vocab_filename = f"{item.id}.ogg"
+            if item.audio_learn_path:
+                existing_name = Path(item.audio_learn_path).name
+                if (self.cache_vocab_dir / existing_name).exists():
+                     vocab_filename = existing_name
+
             cached_path = self.cache_vocab_dir / vocab_filename
             staging_path = self.vocab_audio_dir / vocab_filename
             
             audio_rel_path = None
-            
-            # Check cache
             if cached_path.exists():
                 staging_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(cached_path, staging_path)
                 audio_rel_path = f"audio/vocab/{vocab_filename}"
-            else:
-                # Generate
-                text = item.word
-                if item.article:
-                    text = f"{item.article} {item.word}"
                 
-                try:
-                    self.audio_gen.generate_audio(text, cached_path)
-                    staging_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy(cached_path, staging_path)
-                    audio_rel_path = f"audio/vocab/{vocab_filename}"
-                    
-                    # Update DB metadata (optional, good for debugging)
-                    item.audio_learn_path = audio_rel_path
-                except Exception as e:
-                    logger.error(f"Audio Gen Failed for {item.word}: {e}")
+                if not item.audio_learn_path:
+                     item.audio_learn_path = audio_rel_path
 
-            # 2. Generate/Fetch Sentence Audio
+
+            # 2. Sentence Audio
             sentences = item.example_sentences
             if isinstance(sentences, str):
                 try: sentences = json.loads(sentences)
@@ -97,26 +171,25 @@ class ContentPackager:
                     if not sent_text: continue
                     
                     sent_filename = f"{item.id}_sent_{idx+1}.ogg"
+                    if sent.get("original_audio") or sent.get("audio_path"):
+                         raw_path = sent.get("original_audio") or sent.get("audio_path")
+                         existing_sent_name = Path(raw_path).name
+                         if (self.cache_sent_dir / existing_sent_name).exists():
+                             sent_filename = existing_sent_name
+
                     cached_sent_path = self.cache_sent_dir / sent_filename
                     staging_sent_path = self.sentence_audio_dir / sent_filename
                     
                     sent_rel_path = None
-                    
                     if cached_sent_path.exists():
                         staging_sent_path.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy(cached_sent_path, staging_sent_path)
                         sent_rel_path = f"audio/sentences/{sent_filename}"
-                    else:
-                        try:
-                            self.audio_gen.generate_audio(sent_text, cached_sent_path)
-                            staging_sent_path.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy(cached_sent_path, staging_sent_path)
-                            sent_rel_path = f"audio/sentences/{sent_filename}"
-                        except Exception as e:
-                            logger.error(f"Audio Gen Failed for sentence '{sent_text}': {e}")
                     
                     if sent_rel_path:
                         sent["audio_path"] = sent_rel_path
+                        if "original_audio" in sent:
+                            del sent["original_audio"]
                     
                     processed_sentences.append(sent)
             
@@ -130,8 +203,6 @@ class ContentPackager:
                 "trans_en": item.translation_en,
                 "sentences": processed_sentences
             }
-            
-            # Only add audio key if it exists
             if audio_rel_path:
                 entry["audio"] = audio_rel_path
                 

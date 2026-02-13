@@ -106,5 +106,4 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
-server/data/dictionaries/kaikki.org-dictionary-German.jsonl
-server/data/dictionaries/kaikki_german.db
+server/data
