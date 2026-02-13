@@ -16,6 +16,7 @@ data class VocabularyEntity(
     val partOfSpeech: String,
     val audioLearnPath: String,
     val audioReviewPath: String,
+    val audioEnPath: String = "",  // English translation audio for Smart Playlist
     val translationEn: String,
     val exampleSentencesJson: String,
     val frequencyRank: Int,

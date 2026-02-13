@@ -166,10 +166,12 @@ data class VocabularyJsonItem(
     val pos: String,
     val trans_en: String,
     val audio: String?,
+    val audio_en: String?,  // NEW: English translation audio
     val sentences: List<Map<String, Any>>?
 ) {
     fun toEntity(basePath: String, gson: Gson): VocabularyEntity {
         val localAudioPath = audio?.let { "$basePath/$it" } ?: ""
+        val localEnAudioPath = audio_en?.let { "$basePath/$it" } ?: ""
 
         val exSentencesList = sentences?.map {
             mapOf(
@@ -191,6 +193,7 @@ data class VocabularyJsonItem(
             pluralForm = plural,
             audioLearnPath = localAudioPath,
             audioReviewPath = localAudioPath,
+            audioEnPath = localEnAudioPath,  // NEW
             exampleSentencesJson = jsonSentences,
             ipa = null,
             verbPrefix = null,

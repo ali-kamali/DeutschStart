@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,7 +67,8 @@ fun AppNavigation() {
         composable("home") {
             HomeScreen(
                 onNavigateToContent = { navController.navigate("content") },
-                onNavigateToPractice = { navController.navigate("flashcards") }
+                onNavigateToPractice = { navController.navigate("flashcards") },
+                onNavigateToPlaylist = { navController.navigate("playlist") }
             )
         }
         composable("content") {
@@ -84,6 +87,11 @@ fun AppNavigation() {
                 }
             )
         }
+        composable("playlist") {
+            com.deutschstart.app.playlist.PlaylistScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -91,6 +99,7 @@ fun AppNavigation() {
 fun HomeScreen(
     onNavigateToContent: () -> Unit,
     onNavigateToPractice: () -> Unit,
+    onNavigateToPlaylist: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -157,6 +166,20 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
             }
+            Spacer(Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = onNavigateToPlaylist,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                enabled = state.totalWords > 0
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Smart Playlist", style = MaterialTheme.typography.titleMedium)
+            }
+            
             Spacer(Modifier.height(16.dp))
             OutlinedButton(onClick = onNavigateToContent) {
                 Text("Manage Content")

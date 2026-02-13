@@ -286,7 +286,7 @@ def import_vocabulary(items):
 def generate_pack():
     print("Triggering pack generation (this may take a while)...")
     req = urllib.request.Request(
-        f"{API_BASE}/packs/latest?version_tag=v2",
+        f"{API_BASE}/packs/latest?version_tag=v3",
         data=b"", 
         headers={"Content-Type": "application/json"},
         method="POST"

@@ -39,10 +39,12 @@ RUN mkdir -p /app/piper && \
     curl -L https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz | tar -xz -C /app/piper --strip-components=1
 ENV PATH="/app/piper:$PATH"
 
-# Download German Voice Model (Thorsten - High Quality)
+# Download Voice Models (German + English for Smart Playlist)
 RUN mkdir -p /app/piper-voices && \
     curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/de/de_DE/thorsten/high/de_DE-thorsten-high.onnx" -o /app/piper-voices/de_DE-thorsten-high.onnx && \
-    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/de/de_DE/thorsten/high/de_DE-thorsten-high.onnx.json" -o /app/piper-voices/de_DE-thorsten-high.onnx.json
+    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/de/de_DE/thorsten/high/de_DE-thorsten-high.onnx.json" -o /app/piper-voices/de_DE-thorsten-high.onnx.json && \
+    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high/en_US-libritts-high.onnx" -o /app/piper-voices/en_US-libritts-high.onnx && \
+    curl -L "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/libritts/high/en_US-libritts-high.onnx.json" -o /app/piper-voices/en_US-libritts-high.onnx.json
 
 
 # Copy installed packages from builder

@@ -8,26 +8,45 @@ logger = logging.getLogger(__name__)
 
 class AudioGenerator:
     """
-    Wrapper around Piper TTS for generating German audio.
-    Uses the 'thorsten-high' model downloaded in Dockerfile.
+    Wrapper around Piper TTS for generating audio in multiple languages.
+    Supports German (thorsten-high) and English (libritts-high).
     """
     
-    def __init__(self, model_path: str = "/app/piper-voices/de_DE-thorsten-high.onnx", piper_binary: str = "/app/piper/piper"):
-        self.model_path = Path(model_path)
+    def __init__(
+        self, 
+        german_model_path: str = "/app/piper-voices/de_DE-thorsten-high.onnx",
+        english_model_path: str = "/app/piper-voices/en_US-libritts-high.onnx",
+        piper_binary: str = "/app/piper/piper"
+    ):
+        self.german_model_path = Path(german_model_path)
+        self.english_model_path = Path(english_model_path)
         self.piper_binary = Path(piper_binary)
         
-        if not self.model_path.exists():
-            logger.warning(f"Piper model not found at {self.model_path}. TTS will fail.")
+        if not self.german_model_path.exists():
+            logger.warning(f"German Piper model not found at {self.german_model_path}. German TTS will fail.")
+        if not self.english_model_path.exists():
+            logger.warning(f"English Piper model not found at {self.english_model_path}. English TTS will fail.")
         if not self.piper_binary.exists():
             logger.warning(f"Piper binary not found at {self.piper_binary}. TTS will fail.")
 
-    def generate_audio(self, text: str, output_path: Path):
+    def generate_audio(self, text: str, output_path: Path, language: str = "de"):
         """
         Generate audio from text using Piper TTS.
         Output format is WAV (Piper default), then converted to OGG Vorbis via ffmpeg.
+        
+        Args:
+            text: Text to convert to speech
+            output_path: Where to save the audio file
+            language: "de" for German, "en" for English
         """
         if not text:
             raise ValueError("Text cannot be empty")
+        
+        # Select model based on language
+        model_path = self.german_model_path if language == "de" else self.english_model_path
+        
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model not found for language '{language}': {model_path}")
             
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
@@ -49,7 +68,7 @@ class AudioGenerator:
             # Simple text-to-speech
             cmd = [
                 str(self.piper_binary),
-                "--model", str(self.model_path),
+                "--model", str(model_path),
                 "--output_file", str(tmp_wav_path)
             ]
             
@@ -62,10 +81,12 @@ class AudioGenerator:
             )
             
             # 2. Convert to OGG Vorbis with ffmpeg (Quality 4 ~ 128kbps, -14 LUFS normalization)
+            # Resample to 22050Hz for Android compatibility (Piper outputs 192kHz which Android can't decode)
             # Loudness normalization: loudnorm=I=-14:TP=-1.5:LRA=11
             ffmpeg_cmd = [
                 "ffmpeg", "-y",
                 "-i", str(tmp_wav_path),
+                "-ar", "22050",  # Resample to 22050Hz
                 "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
                 "-c:a", "libvorbis",
                 "-q:a", "4",

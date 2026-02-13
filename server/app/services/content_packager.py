@@ -17,14 +17,14 @@ import os
 
 # Helper for parallel execution needs to be top-level
 def _generate_audio_task(args):
-    text, output_path = args
+    text, output_path, language = args  # Added language
     if output_path.exists():
         return True, str(output_path)
         
     # Initialize generator inside the worker process
     gen = AudioGenerator()
     try:
-        gen.generate_audio(text, output_path)
+        gen.generate_audio(text, output_path, language=language)
         return True, str(output_path)
     except Exception as e:
         return False, f"Error generating '{text}': {str(e)}"
@@ -45,8 +45,10 @@ class ContentPackager:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_vocab_dir = self.cache_dir / "vocab"
         self.cache_sent_dir = self.cache_dir / "sentences"
+        self.cache_en_dir = self.cache_dir / "english"  # NEW: English translations
         self.cache_vocab_dir.mkdir(exist_ok=True)
         self.cache_sent_dir.mkdir(exist_ok=True)
+        self.cache_en_dir.mkdir(exist_ok=True)
         
         self.audio_gen = AudioGenerator()
         
@@ -55,6 +57,7 @@ class ContentPackager:
         self.audio_dir = self.staging_dir / "audio"
         self.vocab_audio_dir = self.audio_dir / "vocab"
         self.sentence_audio_dir = self.audio_dir / "sentences"
+        self.english_audio_dir = self.audio_dir / "english"  # NEW
         
         self._init_staging()
         
@@ -64,6 +67,7 @@ class ContentPackager:
             time.sleep(0.1) # Windows Safety
         self.vocab_audio_dir.mkdir(parents=True, exist_ok=True)
         self.sentence_audio_dir.mkdir(parents=True, exist_ok=True)
+        self.english_audio_dir.mkdir(parents=True, exist_ok=True)  # NEW
 
     def generate_pack(self, version_tag: str = "v1"):
         items = self.db.query(VocabularyItem).all()
@@ -89,7 +93,7 @@ class ContentPackager:
                 text = item.word
                 if item.article:
                     text = f"{item.article} {item.word}"
-                tasks.append((text, cached_path))
+                tasks.append((text, cached_path, "de"))  # German vocabulary
 
             # --- Sentence Audio ---
             sentences = item.example_sentences
@@ -115,7 +119,16 @@ class ContentPackager:
                     cached_sent_path = self.cache_sent_dir / sent_filename
                     
                     if not cached_sent_path.exists():
-                        tasks.append((sent_text, cached_sent_path))
+                        tasks.append((sent_text, cached_sent_path, "de"))  # German sentence
+
+            # --- English Translation Audio ---
+            if item.translation_en:
+                en_filename = f"{item.id}_en.ogg"
+                cached_en_path = self.cache_en_dir / en_filename
+                
+                if not cached_en_path.exists():
+                    tasks.append((item.translation_en, cached_en_path, "en"))  # English translation
+
 
         # Pass 2: Parallel Generation
         if tasks:
@@ -193,6 +206,18 @@ class ContentPackager:
                     
                     processed_sentences.append(sent)
             
+            # 3. English Translation Audio
+            en_audio_rel_path = None
+            if item.translation_en:
+                en_filename = f"{item.id}_en.ogg"
+                cached_en_path = self.cache_en_dir / en_filename
+                staging_en_path = self.english_audio_dir / en_filename
+                
+                if cached_en_path.exists():
+                    staging_en_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(cached_en_path, staging_en_path)
+                    en_audio_rel_path = f"audio/english/{en_filename}"
+            
             entry = {
                 "id": item.id,
                 "word": item.word,
@@ -205,6 +230,8 @@ class ContentPackager:
             }
             if audio_rel_path:
                 entry["audio"] = audio_rel_path
+            if en_audio_rel_path:  # NEW
+                entry["audio_en"] = en_audio_rel_path
                 
             pack_data.append(entry)
 
