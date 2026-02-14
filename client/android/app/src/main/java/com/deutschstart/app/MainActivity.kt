@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -25,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,7 +75,8 @@ fun AppNavigation() {
                 onNavigateToContent = { navController.navigate("content") },
                 onNavigateToPractice = { navController.navigate("flashcards") },
                 onNavigateToPlaylist = { navController.navigate("playlist") },
-                onNavigateToGrammar = { navController.navigate("grammar_list") }
+                onNavigateToGrammar = { navController.navigate("grammar_list") },
+                onNavigateToLeeches = { navController.navigate("leeches") }
             )
         }
         composable("content") {
@@ -114,6 +117,11 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        composable("leeches") {
+            com.deutschstart.app.ui.leech.LeechScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -123,6 +131,7 @@ fun HomeScreen(
     onNavigateToPractice: () -> Unit,
     onNavigateToPlaylist: () -> Unit,
     onNavigateToGrammar: () -> Unit,
+    onNavigateToLeeches: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -199,6 +208,39 @@ fun HomeScreen(
                 enabled = state.totalWords > 0
             ) {
                 Text("Smart Playlist", style = MaterialTheme.typography.titleMedium)
+            }
+            
+            if (state.leechCount > 0) {
+                Spacer(Modifier.height(16.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    onClick = onNavigateToLeeches
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "${state.leechCount} Leech${if (state.leechCount > 1) "es" else ""}", 
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Text(
+                                "Cards blocking your progress", 
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        TextButton(onClick = onNavigateToLeeches) { 
+                            Text("Fix", color = MaterialTheme.colorScheme.error) 
+                        }
+                    }
+                }
             }
             
             Spacer(Modifier.height(16.dp))

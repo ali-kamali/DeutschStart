@@ -26,16 +26,25 @@ interface VocabularyDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun update(item: VocabularyEntity)
 
+    @Query("SELECT * FROM vocabulary WHERE isLeech = 1 ORDER BY lapses DESC")
+    fun getLeeches(): Flow<List<VocabularyEntity>>
+
+    @Query("SELECT COUNT(*) FROM vocabulary WHERE isLeech = 1")
+    fun getLeechCount(): Flow<Int>
+
     // FSRS Query:
     // 1. New cards (state = 0), limit to a daily new count (e.g. 10) - logic handled in Repo usually, 
     //    but here we just fetch mixed.
     // 2. Due cards (due <= now)
     // Order: Reviews first (critical), then New
+    // Exclude Suspended/Leech cards
     @Query("""
         SELECT * FROM vocabulary 
         WHERE 
+            isSuspended = 0 AND (
             (state = 0) OR 
             (scheduledDate IS NOT NULL AND scheduledDate <= :now)
+            )
         ORDER BY 
             CASE WHEN state = 2 THEN 0 ELSE 1 END,
             scheduledDate ASC
@@ -50,15 +59,18 @@ interface VocabularyDao {
     @Query("SELECT COUNT(*) FROM vocabulary")
     fun getTotalCount(): Flow<Int>
 
-    // Due count (Due <= Now)
-    @Query("SELECT COUNT(*) FROM vocabulary WHERE scheduledDate IS NOT NULL AND scheduledDate <= :now")
+    // Due count (Due <= Now), excluding suspended
+    @Query("SELECT COUNT(*) FROM vocabulary WHERE isSuspended = 0 AND scheduledDate IS NOT NULL AND scheduledDate <= :now")
     fun getDueCount(now: Long): Flow<Int>
-    @Query("SELECT id, word, gender FROM vocabulary")
+    @Query("SELECT id, word, gender, isLeech, isSuspended, lapses FROM vocabulary")
     suspend fun getAllSimple(): List<VocabularySimpleItem>
 }
 
 data class VocabularySimpleItem(
     val id: String,
     val word: String,
-    val gender: String?
+    val gender: String?,
+    val isLeech: Boolean,
+    val isSuspended: Boolean,
+    val lapses: Int
 )

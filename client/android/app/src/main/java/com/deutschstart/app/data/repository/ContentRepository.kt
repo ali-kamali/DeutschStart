@@ -139,7 +139,26 @@ class ContentRepository @Inject constructor(
         val type = object : TypeToken<List<VocabularyJsonItem>>() {}.type
         val items: List<VocabularyJsonItem> = gson.fromJson(jsonString, type)
 
-        val entities = items.map { it.toEntity(contentDir.absolutePath, gson) }
+        // 1. Snapshot existing Leech/Suspended state
+        // We use getAllSimple() to get existing flags, which we MUST preserve
+        // because deleteAll() will wipe them.
+        val existingFlags = try {
+            dao.getAllSimple().associate { it.id to Triple(it.isLeech, it.isSuspended, it.lapses) }
+        } catch (e: Exception) {
+            emptyMap() // Table might be empty or schema mismatch on first run
+        }
+
+        val entities = items.map { item -> 
+            val entity = item.toEntity(contentDir.absolutePath, gson)
+            // Restore flags if this item existed before
+            existingFlags[entity.id]?.let { (isLeech, isSuspended, lapses) ->
+                entity.copy(
+                    isLeech = isLeech,
+                    isSuspended = isSuspended,
+                    lapses = lapses
+                )
+            } ?: entity
+        }
 
         // Grammar Import
         val grammarFile = File(contentDir, "grammar.json")

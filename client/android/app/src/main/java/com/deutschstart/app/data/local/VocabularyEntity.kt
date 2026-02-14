@@ -34,5 +34,8 @@ data class VocabularyEntity(
     // Legacy/Auxiliary
     val lastReviewedAt: Long? = null,
     val kaikkiAudioPath: String? = null,
-    val kaikkiDataJson: String? = null
+    val kaikkiDataJson: String? = null,
+    // Leech detection
+    val isLeech: Boolean = false,
+    val isSuspended: Boolean = false
 )

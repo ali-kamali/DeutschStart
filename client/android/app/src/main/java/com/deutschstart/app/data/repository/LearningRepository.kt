@@ -75,6 +75,42 @@ class LearningRepository @Inject constructor(
 
         dao.update(newItem)
         dao.insertLog(logEntity)
+
+        // Leech detection: check AFTER FSRS update
+        // Only check on "Again" (fail)
+        if (fsrsRating == Rating.Again) {
+            val updatedLapses = newItem.lapses
+            val updatedReps = newItem.reps
+            
+            // Criteria: 5+ lapses OR >25% failure rate (ignored for new cards with < 5 reps)
+            val isLeech = updatedLapses >= 5 ||
+                (updatedReps > 4 && updatedLapses.toFloat() / updatedReps > 0.25f)
+            
+            if (isLeech && !newItem.isLeech) {
+                // Auto-suspend and mark as leech
+                dao.update(newItem.copy(isLeech = true, isSuspended = true))
+            }
+        }
+    }
+
+    suspend fun fixLeech(item: VocabularyEntity, newMnemonic: String?, newSentencesJson: String?) {
+        val fixed = item.copy(
+            isLeech = false,
+            isSuspended = false,
+            lapses = 0, // Reset lapses for fresh start
+            genderMnemonic = newMnemonic ?: item.genderMnemonic,
+            exampleSentencesJson = newSentencesJson ?: item.exampleSentencesJson
+        )
+        dao.update(fixed)
+    }
+
+    suspend fun suspendForever(item: VocabularyEntity) {
+        // Remove from leech list but keep suspended
+        dao.update(item.copy(isSuspended = true, isLeech = false))
+    }
+
+    suspend fun unsuspendCard(item: VocabularyEntity) {
+        dao.update(item.copy(isSuspended = false, isLeech = false, lapses = 0))
     }
 
     fun predictIntervals(item: VocabularyEntity): Map<Int, Int> {

@@ -13,6 +13,7 @@ data class HomeStats(
     val totalWords: Int = 0,
     val learnedWords: Int = 0,
     val dueWords: Int = 0,
+    val leechCount: Int = 0,
     val isLoading: Boolean = true
 )
 
@@ -34,12 +35,14 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeStats> = combine(
         dao.getTotalCount(),
         dao.getLearnedCount(),
-        ticker.flatMapLatest { now -> dao.getDueCount(now) }
-    ) { total, learned, due ->
+        ticker.flatMapLatest { now -> dao.getDueCount(now) },
+        dao.getLeechCount()
+    ) { total, learned, due, leeches ->
         HomeStats(
             totalWords = total,
             learnedWords = learned,
             dueWords = due,
+            leechCount = leeches,
             isLoading = false
         )
     }.stateIn(
