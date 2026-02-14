@@ -1,3 +1,23 @@
 <resources>
     <string name="app_name">DeutschStart</string>
+    
+    <!-- Notifications -->
+    <string name="notif_channel_study">Study Reminders</string>
+    <string name="notif_channel_streak">Streak Protection</string>
+    <string name="notif_channel_achievement">Achievements</string>
+    <string name="notif_due_cards">%d cards due now</string>
+    <string name="notif_streak_risk">Streak at risk! 🔥 Keep your %d-day streak alive</string>
+    <string name="notif_goal_progress">Daily goal: %d/%d XP</string>
+    
+    <!-- Micro-Lesson -->
+    <string name="micro_lesson_quick_btn">Quick 5min ⚡</string>
+    <string name="micro_lesson_title">Daily Micro-Lesson</string>
+    <string name="micro_lesson_stage_vocab">Vocabulary</string>
+    <string name="micro_lesson_stage_grammar">Grammar Quiz</string>
+    <string name="micro_lesson_stage_playlist">Playlist Review</string>
+    <string name="micro_lesson_complete">Lesson Complete! +10 XP Bonus</string>
+    <string name="micro_lesson_all_caught_up">All caught up! 🎉</string>
+    <string name="micro_lesson_continue">Continue</string>
+    <string name="micro_lesson_skip">Skip Stage</string>
+    <string name="micro_lesson_finish">Finish</string>
 </resources>

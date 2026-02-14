@@ -82,7 +82,8 @@ fun AppNavigation() {
                 onNavigateToPractice = { navController.navigate("flashcards") },
                 onNavigateToPlaylist = { navController.navigate("playlist") },
                 onNavigateToGrammar = { navController.navigate("grammar_list") },
-                onNavigateToLeeches = { navController.navigate("leeches") }
+                onNavigateToLeeches = { navController.navigate("leeches") },
+                onNavigateToMicroLesson = { navController.navigate("micro_lesson") }
             )
         }
         composable("content") {
@@ -128,6 +129,14 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        composable(
+            route = "micro_lesson",
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "deutschstart://micro_lesson" })
+        ) {
+            com.deutschstart.app.ui.microlesson.MicroLessonScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -138,6 +147,7 @@ fun HomeScreen(
     onNavigateToPlaylist: () -> Unit,
     onNavigateToGrammar: () -> Unit,
     onNavigateToLeeches: () -> Unit,
+    onNavigateToMicroLesson: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -220,6 +230,45 @@ fun HomeScreen(
                     GamificationSection(userProgress = progress)
                     Spacer(Modifier.height(16.dp))
                 }
+
+                // Quick Micro-Lesson Button
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                ) { isGranted ->
+                    if (isGranted) {
+                        onNavigateToMicroLesson()
+                    } else {
+                        // Navigate anyway, just no notifications
+                        onNavigateToMicroLesson()
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            val permission = android.Manifest.permission.POST_NOTIFICATIONS
+                            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                                    context, 
+                                    permission
+                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            ) {
+                                onNavigateToMicroLesson()
+                            } else {
+                                launcher.launch(permission)
+                            }
+                        } else {
+                            onNavigateToMicroLesson()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
+                    )
+                ) {
+                    Text("Quick 5min ⚡", style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.height(16.dp))
 
                 Row(
                     Modifier.fillMaxWidth(),

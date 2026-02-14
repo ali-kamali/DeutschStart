@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.deutschstart.app.data.local.AppDatabase
 import com.deutschstart.app.data.local.VocabularyDao
 import com.deutschstart.app.data.local.GrammarDao
+import com.deutschstart.app.data.local.MicroLessonDao
 import com.deutschstart.app.data.local.UserProgressDao
 import dagger.Module
 import dagger.Provides
@@ -47,4 +48,7 @@ object DatabaseModule {
 
     @Provides
     fun provideUserProgressDao(db: AppDatabase): UserProgressDao = db.userProgressDao()
+
+    @Provides
+    fun provideMicroLessonDao(db: AppDatabase): MicroLessonDao = db.microLessonDao()
 }

@@ -68,7 +68,7 @@ class LearningRepository @Inject constructor(
             rating = fsrsRating.value,
             scheduledDays = reviewLog.scheduledDays,
             elapsedDays = reviewLog.elapsedDays,
-            reviewDuration = 0, // TODO: Track duration in UI
+            reviewDuration = 0, 
             state = reviewLog.state.value,
             reviewTime = now.time
         )

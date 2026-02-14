@@ -19,4 +19,7 @@ interface GrammarDao {
 
     @Query("DELETE FROM grammar_topics")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM grammar_topics ORDER BY RANDOM() LIMIT 1")
+    suspend fun getRandomTopic(): GrammarTopicEntity?
 }

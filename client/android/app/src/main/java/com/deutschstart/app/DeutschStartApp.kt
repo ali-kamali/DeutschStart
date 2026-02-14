@@ -17,6 +17,7 @@ import javax.inject.Inject
 class DeutschStartApp : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var notificationHelper: com.deutschstart.app.notification.NotificationHelper
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -25,16 +26,32 @@ class DeutschStartApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        notificationHelper.createChannels()
         scheduleDailyReset()
+        scheduleNotificationWorkers()
     }
 
     private fun scheduleDailyReset() {
+        scheduleDailyWork<DailyResetWorker>("daily_reset_worker", 0, 5) // 00:05
+    }
+
+    private fun scheduleNotificationWorkers() {
+        // Goal Progress: 7 PM (19:00)
+        scheduleDailyWork<com.deutschstart.app.notification.GoalProgressWorker>("goal_progress_worker", 19, 0)
+        
+        // Due Cards: 8 PM (20:00)
+        scheduleDailyWork<com.deutschstart.app.notification.DueCardsWorker>("due_cards_worker", 20, 0)
+        
+        // Streak Risk: 9 PM (21:00)
+        scheduleDailyWork<com.deutschstart.app.notification.StreakReminderWorker>("streak_risk_worker", 21, 0)
+    }
+
+    private inline fun <reified T : androidx.work.ListenableWorker> scheduleDailyWork(uniqueName: String, hour: Int, minute: Int) {
         val currentDate = Calendar.getInstance()
         val dueDate = Calendar.getInstance()
 
-        // Set execution around midnight (e.g., 00:05 AM)
-        dueDate.set(Calendar.HOUR_OF_DAY, 0)
-        dueDate.set(Calendar.MINUTE, 5)
+        dueDate.set(Calendar.HOUR_OF_DAY, hour)
+        dueDate.set(Calendar.MINUTE, minute)
         dueDate.set(Calendar.SECOND, 0)
 
         if (dueDate.before(currentDate)) {
@@ -43,14 +60,14 @@ class DeutschStartApp : Application(), Configuration.Provider {
 
         val timeDiff = dueDate.timeInMillis - currentDate.timeInMillis
         
-        val dailyWorkRequest = PeriodicWorkRequestBuilder<DailyResetWorker>(24, TimeUnit.HOURS)
+        val workRequest = PeriodicWorkRequestBuilder<T>(24, TimeUnit.HOURS)
             .setInitialDelay(timeDiff, TimeUnit.MILLISECONDS)
             .build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "daily_reset_worker",
+            uniqueName,
             ExistingPeriodicWorkPolicy.KEEP,
-            dailyWorkRequest
+            workRequest
         )
     }
 }

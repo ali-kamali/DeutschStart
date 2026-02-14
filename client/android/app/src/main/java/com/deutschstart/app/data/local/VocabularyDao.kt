@@ -66,6 +66,22 @@ interface VocabularyDao {
     // Due count (Due <= Now), excluding suspended
     @Query("SELECT COUNT(*) FROM vocabulary WHERE isSuspended = 0 AND scheduledDate IS NOT NULL AND scheduledDate <= :now")
     fun getDueCount(now: Long): Flow<Int>
+    // Suspend version for Workers (no Flow)
+    @Query("SELECT COUNT(*) FROM vocabulary WHERE isSuspended = 0 AND scheduledDate IS NOT NULL AND scheduledDate <= :now")
+    suspend fun getDueCountSuspend(now: Long): Int
+
+    // Get strictly due items (not new) for Micro-Lesson data fetching
+    @Query("SELECT * FROM vocabulary WHERE isSuspended = 0 AND scheduledDate IS NOT NULL AND scheduledDate <= :now ORDER BY scheduledDate ASC LIMIT :limit")
+    suspend fun getDueItems(now: Long, limit: Int): List<VocabularyEntity>
+
+    // Get new items (State=0, not suspended) for Micro-Lesson
+    @Query("SELECT * FROM vocabulary WHERE state = 0 AND isSuspended = 0 ORDER BY frequencyRank ASC LIMIT :limit")
+    suspend fun getNewItems(limit: Int): List<VocabularyEntity>
+
+    // Get known items (State > 0, not suspended) for Playlist stage - Random selection
+    @Query("SELECT * FROM vocabulary WHERE state > 0 AND isSuspended = 0 ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getKnownWords(limit: Int): List<VocabularyEntity>
+
     @Query("SELECT id, word, gender, isLeech, isSuspended, lapses FROM vocabulary")
     suspend fun getAllSimple(): List<VocabularySimpleItem>
 }
