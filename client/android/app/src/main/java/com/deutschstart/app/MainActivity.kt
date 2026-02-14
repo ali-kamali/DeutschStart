@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,9 +46,13 @@ import com.deutschstart.app.ui.home.HomeViewModel
 import com.deutschstart.app.ui.learning.FlashcardScreen
 import com.deutschstart.app.ui.theme.DeutschStartTheme
 import com.deutschstart.app.ui.components.ComprehensionMeter
+import com.deutschstart.app.ui.components.GamificationSection
+import com.deutschstart.app.ui.components.ConfettiOverlay
+import com.deutschstart.app.ui.components.DailyGoalSetter
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.compose.runtime.*
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -136,137 +141,197 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val userProgress by viewModel.userProgress.collectAsState()
+    
+    // Confetti Logic
+    var showConfetti by remember { mutableStateOf(false) }
+    
+    // Watch for goal completion
+    // We need to track previous value to trigger only on crossing threshold
+    // But since we don't have previous value easily here, we can just trigger if they JUST arrived at the screen and it's done? 
+    // No, better to trigger if dailyXp >= dailyGoal AND we haven't shown it yet this session? 
+    // Or just let the user see it once per session if they are above goal? 
+    // Ideally, the ViewModel would expose a one-shot event.
+    // For simplicity: If dailyXp >= dailyGoal, we can show it, but we need to dismiss it after 3s.
+    // The ConfettiOverlay runs for 3s then stops.
+    // We can just trigger it if (dailyXp >= dailyGoal) and we launch a side effect to check if we should show it.
+    // Let's us a simple state: hasShownConfetti
+    var hasShownConfetti by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(userProgress, state) {
+        val progress = userProgress
+        if (progress != null && progress.dailyXp >= progress.dailyGoal && 
+            progress.dailyXp > 0 && !hasShownConfetti) {
+             showConfetti = true
+             hasShownConfetti = true
+        }
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        if (state.isLoading) {
-            CircularProgressIndicator()
-        } else if (state.totalWords == 0) {
-            // Empty state — guide user to download content
-            Icon(
-                imageVector = Icons.Default.School,
-                contentDescription = null,
-                modifier = Modifier.size(72.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top // Changed from Center to Top for scrolling/layout
+            // We might want to make it scrollable if content overflows
+        ) {
             Spacer(Modifier.height(16.dp))
-            Text(
-                "Welcome to DeutschStart!",
-                style = MaterialTheme.typography.headlineMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Download a content pack to start learning German.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(32.dp))
-            Button(onClick = onNavigateToContent) {
-                Text("Download Content")
-            }
-        } else {
-            // Dashboard with stats
-            Text("Willkommen zurück!", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(32.dp))
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatCard("Learned", "${state.learnedWords}")
-                StatCard("Due Now", "${state.dueWords}")
-                StatCard("Total", "${state.totalWords}")
-            }
-            
-            Spacer(Modifier.height(24.dp))
-            ComprehensionMeter(
-                knownPercent = state.comprehension,
-                label = "Global Comprehension"
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = onNavigateToPractice,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = state.totalWords > 0
-            ) {
-                Text(
-                    if (state.dueWords > 0) "Review ${state.dueWords} Due Words"
-                    else "Practice",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedButton(
-                onClick = onNavigateToPlaylist,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = state.totalWords > 0
-            ) {
-                Text("Smart Playlist", style = MaterialTheme.typography.titleMedium)
-            }
-            
-            if (state.leechCount > 0) {
-                Spacer(Modifier.height(16.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    onClick = onNavigateToLeeches
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "${state.leechCount} Leech${if (state.leechCount > 1) "es" else ""}", 
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Text(
-                                "Cards blocking your progress", 
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                        TextButton(onClick = onNavigateToLeeches) { 
-                            Text("Fix", color = MaterialTheme.colorScheme.error) 
+            if (state.isLoading) {
+                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                 }
+            } else if (state.totalWords == 0) {
+                // Empty state — guide user to download content
+                // ... (Existing empty state logic)
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.School,
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "Welcome to DeutschStart!",
+                            style = MaterialTheme.typography.headlineMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Download a content pack to start learning German.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(32.dp))
+                        Button(onClick = onNavigateToContent) {
+                            Text("Download Content")
                         }
                     }
                 }
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onNavigateToGrammar,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                Icon(Icons.Default.School, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Learn (Grammar)", style = MaterialTheme.typography.titleMedium)
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            OutlinedButton(onClick = onNavigateToContent) {
-                Text("Manage Content")
+            } else {
+                // Dashboard with stats
+                Text("Willkommen zurück!", style = MaterialTheme.typography.headlineMedium)
+                Spacer(Modifier.height(16.dp))
+
+                // GAMIFICATION SECTION
+                userProgress?.let { progress ->
+                    GamificationSection(userProgress = progress)
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatCard("Learned", "${state.learnedWords}")
+                    StatCard("Due Now", "${state.dueWords}")
+                    StatCard("Total", "${state.totalWords}")
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                ComprehensionMeter(
+                    knownPercent = state.comprehension,
+                    label = "Global Comprehension"
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                Button(
+                    onClick = onNavigateToPractice,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    enabled = state.totalWords > 0
+                ) {
+                    Text(
+                        if (state.dueWords > 0) "Review ${state.dueWords} Due Words"
+                        else "Practice",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+
+                OutlinedButton(
+                    onClick = onNavigateToPlaylist,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    enabled = state.totalWords > 0
+                ) {
+                    Text("Smart Playlist", style = MaterialTheme.typography.titleMedium)
+                }
+                
+                if (state.leechCount > 0) {
+                     Spacer(Modifier.height(16.dp))
+                     // ... Leech Card (kept as is)
+                     Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        onClick = onNavigateToLeeches
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "${state.leechCount} Leech${if (state.leechCount > 1) "es" else ""}", 
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    "Cards blocking your progress", 
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                            TextButton(onClick = onNavigateToLeeches) { 
+                                Text("Fix", color = MaterialTheme.colorScheme.error) 
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = onNavigateToGrammar,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Icon(Icons.Default.School, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Learn (Grammar)", style = MaterialTheme.typography.titleMedium)
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(onClick = onNavigateToContent) {
+                    Text("Manage Content")
+                }
+                
+                // Daily Goal Setter
+                userProgress?.let { progress ->
+                    Spacer(Modifier.height(16.dp))
+                    DailyGoalSetter(
+                        currentGoal = progress.dailyGoal, 
+                        onGoalChanged = { viewModel.updateDailyGoal(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
+        
+        // Confetti Overlay
+        ConfettiOverlay(trigger = showConfetti)
+        
+        // Reset trigger after animation (3s) to define end of "event"? 
+        // The ConfettiOverlay handles its own animation lifecycle. 
+        // We just toggle it on.
     }
 }
 

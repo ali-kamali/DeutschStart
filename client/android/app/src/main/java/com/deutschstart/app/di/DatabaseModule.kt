@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.deutschstart.app.data.local.AppDatabase
 import com.deutschstart.app.data.local.VocabularyDao
 import com.deutschstart.app.data.local.GrammarDao
+import com.deutschstart.app.data.local.UserProgressDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -43,4 +44,7 @@ object DatabaseModule {
 
     @Provides
     fun provideGrammarDao(db: AppDatabase): GrammarDao = db.grammarDao()
+
+    @Provides
+    fun provideUserProgressDao(db: AppDatabase): UserProgressDao = db.userProgressDao()
 }

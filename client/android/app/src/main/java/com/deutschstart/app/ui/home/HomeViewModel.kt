@@ -3,10 +3,12 @@ package com.deutschstart.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.deutschstart.app.data.local.VocabularyDao
+import com.deutschstart.app.data.repository.GamificationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeStats(
@@ -21,8 +23,29 @@ data class HomeStats(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val dao: VocabularyDao
+    private val dao: VocabularyDao,
+    private val gamificationRepo: GamificationRepository
 ) : ViewModel() {
+
+    init {
+        viewModelScope.launch {
+            gamificationRepo.ensureProgressExists()
+            gamificationRepo.checkAndUpdateStreak()
+        }
+    }
+
+    val userProgress = gamificationRepo.observeProgress()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    fun updateDailyGoal(goal: Int) {
+        viewModelScope.launch {
+            gamificationRepo.updateDailyGoal(goal)
+        }
+    }
 
     // Ticker emits current time every 60 seconds to refresh "due" count
     private val ticker = flow {

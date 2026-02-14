@@ -35,7 +35,6 @@ fun FlashcardScreen(
         Column(
             Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Session Complete!", style = MaterialTheme.typography.headlineLarge)
             Spacer(Modifier.height(8.dp))
@@ -43,6 +42,42 @@ fun FlashcardScreen(
                 "${state.cardsCompleted} cards reviewed",
                 style = MaterialTheme.typography.bodyLarge
             )
+            
+            Spacer(Modifier.height(16.dp))
+            
+            // Gamification Summary
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                 Column(
+                     Modifier.padding(16.dp),
+                     horizontalAlignment = Alignment.CenterHorizontally
+                 ) {
+                     Text(
+                         "+${state.sessionXp} XP Earned",
+                         style = MaterialTheme.typography.headlineMedium,
+                         color = MaterialTheme.colorScheme.onSecondaryContainer,
+                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                     )
+                     
+                     val accuracyPercent = (state.sessionAccuracy * 100).toInt()
+                     Text(
+                         "Accuracy: $accuracyPercent%",
+                         style = MaterialTheme.typography.bodyMedium,
+                         color = MaterialTheme.colorScheme.onSecondaryContainer
+                     )
+                     
+                     if (accuracyPercent >= 90 && state.totalSessionSize >= 5) {
+                         Spacer(Modifier.height(8.dp))
+                         Text(
+                             "Perfect Session! 🌟 +5 Bonus",
+                             style = MaterialTheme.typography.labelMedium,
+                             color = MaterialTheme.colorScheme.primary
+                         )
+                     }
+                 }
+            }
+            
             Spacer(Modifier.height(24.dp))
             Button(onClick = { viewModel.loadSession() }) {
                 Text("Review More")
