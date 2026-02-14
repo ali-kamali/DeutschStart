@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.PlayArrow
@@ -34,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
@@ -178,12 +181,14 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        val scrollState = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top // Changed from Center to Top for scrolling/layout
+            verticalArrangement = Arrangement.Top
             // We might want to make it scrollable if content overflows
         ) {
             Spacer(Modifier.height(16.dp))
@@ -263,7 +268,8 @@ fun HomeScreen(
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary
                     )
                 ) {
                     Text("Quick 5min ⚡", style = MaterialTheme.typography.titleMedium)
@@ -272,20 +278,20 @@ fun HomeScreen(
 
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    StatCard("Learned", "${state.learnedWords}")
-                    StatCard("Due Now", "${state.dueWords}")
-                    StatCard("Total", "${state.totalWords}")
+                    StatCard("Learned", "${state.learnedWords}", Modifier.weight(1f))
+                    StatCard("Due Now", "${state.dueWords}", Modifier.weight(1f))
+                    StatCard("Total", "${state.totalWords}", Modifier.weight(1f))
                 }
                 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
                 ComprehensionMeter(
                     knownPercent = state.comprehension,
                     label = "Global Comprehension"
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
 
                 Button(
                     onClick = onNavigateToPractice,
@@ -359,8 +365,13 @@ fun HomeScreen(
                 }
                 
                 Spacer(Modifier.height(16.dp))
-                OutlinedButton(onClick = onNavigateToContent) {
-                    Text("Manage Content")
+                OutlinedButton(
+                    onClick = onNavigateToContent,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text("Manage Content", style = MaterialTheme.typography.titleMedium)
                 }
                 
                 // Daily Goal Setter
@@ -371,6 +382,7 @@ fun HomeScreen(
                         onGoalChanged = { viewModel.updateDailyGoal(it) },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(Modifier.height(32.dp)) // Add bottom padding for scroll
                 }
             }
         }
@@ -385,10 +397,15 @@ fun HomeScreen(
 }
 
 @Composable
-fun StatCard(label: String, value: String) {
+fun StatCard(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier.size(100.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
+        modifier = modifier.height(100.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             Modifier.fillMaxSize(),
@@ -398,9 +415,14 @@ fun StatCard(label: String, value: String) {
             Text(
                 value,
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
             )
-            Text(label, style = MaterialTheme.typography.labelMedium)
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
