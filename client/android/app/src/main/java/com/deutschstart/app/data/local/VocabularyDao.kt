@@ -56,6 +56,10 @@ interface VocabularyDao {
     @Query("SELECT COUNT(*) FROM vocabulary WHERE state > 0")
     fun getLearnedCount(): Flow<Int>
 
+    // Count known (State > 0 AND not suspended) for accurate comprehension meter
+    @Query("SELECT COUNT(*) FROM vocabulary WHERE state > 0 AND isSuspended = 0")
+    fun getKnownCount(): Flow<Int>
+
     @Query("SELECT COUNT(*) FROM vocabulary")
     fun getTotalCount(): Flow<Int>
 

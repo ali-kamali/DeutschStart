@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.deutschstart.app.ui.components.ComprehensionMeter
 
 @Composable
 fun PlaylistScreen(
@@ -42,6 +43,15 @@ fun PlaylistScreen(
             IconButton(onClick = { /* Settings dialog */ }) {
                 Icon(Icons.Default.Settings, "Settings")
             }
+        }
+        
+        // Comprehension Meter (Batch Target)
+        if (!state.isLoading && state.error == null && state.totalCards > 0) {
+            Spacer(Modifier.height(16.dp))
+            ComprehensionMeter(
+                knownPercent = state.comprehension,
+                label = "Batch Comprehension"
+            )
         }
         
         Spacer(Modifier.height(32.dp))

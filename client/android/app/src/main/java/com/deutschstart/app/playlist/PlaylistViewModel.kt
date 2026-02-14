@@ -25,7 +25,8 @@ data class PlaylistUiState(
     val kaikkiInfo: KaikkiInfo? = null,
     val germanSpeed: Float = 1.0f,
     val englishSpeed: Float = 1.0f,
-    val loopEnabled: Boolean = false
+    val loopEnabled: Boolean = false,
+    val comprehension: Float = 0f
 )
 
 data class KaikkiInfo(val ipa: String?, val senses: List<String>)
@@ -180,6 +181,13 @@ class PlaylistViewModel @Inject constructor(
                 }
                 
                 cards = fetchedCards
+                
+                // Calculate batch comprehension
+                val knownCount = cards.count { it.state > 0 } // State > 0 means learned/known
+                val comp = if (cards.isNotEmpty()) knownCount.toFloat() / cards.size else 0f
+                
+                _uiState.update { it.copy(comprehension = comp) }
+
                 buildAndLoadPlaylist()
                 Log.d("PlaylistVM", "loadPlaylist: Complete, totalCards=${cards.size}")
                 

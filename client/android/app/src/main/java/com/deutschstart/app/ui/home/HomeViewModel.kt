@@ -14,6 +14,8 @@ data class HomeStats(
     val learnedWords: Int = 0,
     val dueWords: Int = 0,
     val leechCount: Int = 0,
+    val knownWords: Int = 0,
+    val comprehension: Float = 0f,
     val isLoading: Boolean = true
 )
 
@@ -35,14 +37,17 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeStats> = combine(
         dao.getTotalCount(),
         dao.getLearnedCount(),
+        dao.getKnownCount(),
         ticker.flatMapLatest { now -> dao.getDueCount(now) },
         dao.getLeechCount()
-    ) { total, learned, due, leeches ->
+    ) { total, learned, known, due, leeches ->
         HomeStats(
             totalWords = total,
-            learnedWords = learned,
+            learnedWords = learned, // Keep existing "Learned" stat which includes suspended
+            knownWords = known,     // Use "Known" for comprehension (excludes suspended)
             dueWords = due,
             leechCount = leeches,
+            comprehension = if (total > 0) known.toFloat() / total.toFloat() else 0f,
             isLoading = false
         )
     }.stateIn(

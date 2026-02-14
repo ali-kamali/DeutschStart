@@ -44,6 +44,7 @@ import com.deutschstart.app.ui.grammar.GrammarDetailScreen
 import com.deutschstart.app.ui.home.HomeViewModel
 import com.deutschstart.app.ui.learning.FlashcardScreen
 import com.deutschstart.app.ui.theme.DeutschStartTheme
+import com.deutschstart.app.ui.components.ComprehensionMeter
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -182,8 +183,14 @@ fun HomeScreen(
                 StatCard("Due Now", "${state.dueWords}")
                 StatCard("Total", "${state.totalWords}")
             }
+            
+            Spacer(Modifier.height(24.dp))
+            ComprehensionMeter(
+                knownPercent = state.comprehension,
+                label = "Global Comprehension"
+            )
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(24.dp))
 
             Button(
                 onClick = onNavigateToPractice,
