@@ -1,17 +1,18 @@
 package com.deutschstart.app.playlist
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.deutschstart.app.data.repository.LearningRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class PlaylistUiState(
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val playbackState: PlaybackState = PlaybackState.Idle,
     val currentCardIndex: Int = 0,
     val totalCards: Int = 0,
@@ -44,64 +45,69 @@ class PlaylistViewModel @Inject constructor(
     private var currentOffset: Int = 0
     
     init {
-        // Observe player state
+        Log.d("PlaylistVM", "init: ViewModel created, starting observers and loading")
+        
+        // Observe player playback state
         viewModelScope.launch {
-            combine(
-                playlistPlayer.playbackState,
-                playlistPlayer.currentCardIndex,
-                playlistPlayer.progress,
-                playlistPlayer.germanSpeed,
-                playlistPlayer.englishSpeed
-            ) { playbackState, cardIndex, progress, deSpeed, enSpeed ->
-                data class PlayerState(
-                    val playbackState: PlaybackState,
-                    val cardIndex: Int,
-                    val progress: Float,
-                    val deSpeed: Float,
-                    val enSpeed: Float
-                )
-                PlayerState(playbackState, cardIndex, progress, deSpeed, enSpeed)
-            }.collect { (playbackState, cardIndex, progress, deSpeed, enSpeed) ->
-                var currentCard = _uiState.value.currentCard
-                var currentSentence = _uiState.value.currentSentence
-                var currentSentenceEn = _uiState.value.currentSentenceEn
-                var kaikkiInfo = _uiState.value.kaikkiInfo
-                
-                // Check if we need to update card info
-                // Update if index changed OR if we have cards but no current card shown (e.g. after initial load)
-                val needUpdate = (cardIndex != _uiState.value.currentCardIndex) || 
-                                 (currentCard == null && cards.isNotEmpty() && cardIndex >= 0 && cardIndex < cards.size)
-                
-                if (needUpdate) {
-                    if (cardIndex >= 0 && cardIndex < cards.size) {
-                        val card = cards[cardIndex]
-                        currentCard = card
-                        val sentenceData = extractFirstSentenceData(card.exampleSentencesJson)
-                        currentSentence = sentenceData?.first
-                        currentSentenceEn = sentenceData?.second
-                        kaikkiInfo = extractKaikkiInfo(card.kaikkiDataJson)
-                    }
-                }
-
-                _uiState.value = _uiState.value.copy(
-                    playbackState = playbackState,
+            playlistPlayer.playbackState.collect { playbackState ->
+                _uiState.update { it.copy(playbackState = playbackState) }
+            }
+        }
+        
+        // Observe player card index
+        viewModelScope.launch {
+            playlistPlayer.currentCardIndex.collect { cardIndex ->
+                updateCardInfo(cardIndex)
+            }
+        }
+        
+        // Observe player progress
+        viewModelScope.launch {
+            playlistPlayer.progress.collect { progress ->
+                _uiState.update { it.copy(progress = progress) }
+            }
+        }
+        
+        // Observe speeds
+        viewModelScope.launch {
+            playlistPlayer.germanSpeed.collect { speed ->
+                _uiState.update { it.copy(germanSpeed = speed) }
+            }
+        }
+        viewModelScope.launch {
+            playlistPlayer.englishSpeed.collect { speed ->
+                _uiState.update { it.copy(englishSpeed = speed) }
+            }
+        }
+        
+        // Observe loop state
+        viewModelScope.launch {
+            playlistPlayer.loopEnabled.collect { looping ->
+                _uiState.update { it.copy(loopEnabled = looping) }
+            }
+        }
+        
+        // Auto-load initial playlist
+        loadPlaylist(limit = 20)
+    }
+    
+    private fun updateCardInfo(cardIndex: Int) {
+        if (cardIndex >= 0 && cardIndex < cards.size) {
+            val card = cards[cardIndex]
+            val sentenceData = extractFirstSentenceData(card.exampleSentencesJson)
+            val kaikkiInfo = extractKaikkiInfo(card.kaikkiDataJson)
+            
+            _uiState.update {
+                it.copy(
                     currentCardIndex = cardIndex,
-                    progress = progress,
-                    germanSpeed = deSpeed,
-                    englishSpeed = enSpeed,
-                    isLoading = false,
-                    currentCard = currentCard,
-                    currentSentence = currentSentence,
-                    currentSentenceEn = currentSentenceEn,
+                    currentCard = card,
+                    currentSentence = sentenceData?.first,
+                    currentSentenceEn = sentenceData?.second,
                     kaikkiInfo = kaikkiInfo
                 )
             }
-        }
-        // Observe loop state separately
-        viewModelScope.launch {
-            playlistPlayer.loopEnabled.collect { looping ->
-                _uiState.value = _uiState.value.copy(loopEnabled = looping)
-            }
+        } else {
+            _uiState.update { it.copy(currentCardIndex = cardIndex) }
         }
     }
     
@@ -160,28 +166,26 @@ class PlaylistViewModel @Inject constructor(
 
     fun loadPlaylist(limit: Int = 20, config: PlaylistConfig = PlaylistConfig()) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, config = config)
+            Log.d("PlaylistVM", "loadPlaylist: Starting, limit=$limit")
+            _uiState.update { it.copy(isLoading = true, config = config, error = null) }
             
             try {
                 // Get due items from repository
-                val fethcedCards = repository.getDueItems(limit)
+                val fetchedCards = repository.getDueItems(limit)
+                Log.d("PlaylistVM", "loadPlaylist: Fetched ${fetchedCards.size} cards")
                 
-                if (fethcedCards.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "No cards due for review"
-                    )
+                if (fetchedCards.isEmpty()) {
+                    _uiState.update { it.copy(isLoading = false, error = "No cards due for review") }
                     return@launch
                 }
                 
-                cards = fethcedCards
+                cards = fetchedCards
                 buildAndLoadPlaylist()
+                Log.d("PlaylistVM", "loadPlaylist: Complete, totalCards=${cards.size}")
                 
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load playlist"
-                )
+                Log.e("PlaylistVM", "loadPlaylist: Failed", e)
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load playlist") }
             }
         }
     }
@@ -194,20 +198,37 @@ class PlaylistViewModel @Inject constructor(
             // Build playlist
             val playlistData = playlistBuilder.buildPlaylist(cards, config) 
             currentPlaylistData = playlistData
+            Log.d("PlaylistVM", "buildAndLoadPlaylist: Built ${playlistData.segments.size} segments")
 
             // Load into player
             playlistPlayer.loadPlaylist(playlistData)
             
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                totalCards = cards.size,
-                error = null
-            )
+            // Update first card info immediately
+            if (cards.isNotEmpty()) {
+                val firstCard = cards[0]
+                val sentenceData = extractFirstSentenceData(firstCard.exampleSentencesJson)
+                val kaikkiInfo = extractKaikkiInfo(firstCard.kaikkiDataJson)
+                
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        totalCards = cards.size,
+                        error = null,
+                        currentCard = firstCard,
+                        currentCardIndex = 0,
+                        currentSentence = sentenceData?.first,
+                        currentSentenceEn = sentenceData?.second,
+                        kaikkiInfo = kaikkiInfo
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(isLoading = false, totalCards = cards.size, error = null) }
+            }
+            
+            Log.d("PlaylistVM", "buildAndLoadPlaylist: Done, isLoading=false")
         } catch (e: Exception) {
-             _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                error = e.message ?: "Failed to build playlist"
-            )
+            Log.e("PlaylistVM", "buildAndLoadPlaylist: Failed", e)
+            _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to build playlist") }
         }
     }
     
@@ -229,7 +250,7 @@ class PlaylistViewModel @Inject constructor(
     
     fun updateConfig(config: PlaylistConfig) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(config = config)
+            _uiState.update { it.copy(config = config) }
             buildAndLoadPlaylist()
         }
     }
@@ -251,17 +272,14 @@ class PlaylistViewModel @Inject constructor(
 
     fun loadNextBatch() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            _uiState.update { it.copy(isLoading = true) }
             
             try {
                 currentOffset += cards.size
                 val nextCards = repository.getDueItems(limit = 20, offset = currentOffset)
                 
                 if (nextCards.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "No more cards available"
-                    )
+                    _uiState.update { it.copy(isLoading = false, error = "No more cards available") }
                     return@launch
                 }
                 
@@ -269,15 +287,13 @@ class PlaylistViewModel @Inject constructor(
                 buildAndLoadPlaylist()
                 
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load next batch"
-                )
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load next batch") }
             }
         }
     }
     
     override fun onCleared() {
+        Log.d("PlaylistVM", "onCleared: Releasing player")
         super.onCleared()
         playlistPlayer.release()
     }

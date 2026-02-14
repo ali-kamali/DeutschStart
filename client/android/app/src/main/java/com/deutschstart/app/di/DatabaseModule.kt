@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.deutschstart.app.data.local.AppDatabase
 import com.deutschstart.app.data.local.VocabularyDao
+import com.deutschstart.app.data.local.GrammarDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,4 +40,7 @@ object DatabaseModule {
 
     @Provides
     fun provideVocabularyDao(db: AppDatabase): VocabularyDao = db.vocabularyDao()
+
+    @Provides
+    fun provideGrammarDao(db: AppDatabase): GrammarDao = db.grammarDao()
 }

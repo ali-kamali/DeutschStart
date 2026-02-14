@@ -53,4 +53,12 @@ interface VocabularyDao {
     // Due count (Due <= Now)
     @Query("SELECT COUNT(*) FROM vocabulary WHERE scheduledDate IS NOT NULL AND scheduledDate <= :now")
     fun getDueCount(now: Long): Flow<Int>
+    @Query("SELECT id, word, gender FROM vocabulary")
+    suspend fun getAllSimple(): List<VocabularySimpleItem>
 }
+
+data class VocabularySimpleItem(
+    val id: String,
+    val word: String,
+    val gender: String?
+)

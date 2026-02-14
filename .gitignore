@@ -107,3 +107,4 @@ Thumbs.db
 htmlcov/
 .pytest_cache/
 server/data
+data/raw/grammar/archived_raw/

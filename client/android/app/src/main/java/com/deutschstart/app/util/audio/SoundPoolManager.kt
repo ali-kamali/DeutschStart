@@ -14,27 +14,39 @@ import kotlin.coroutines.resume
 class SoundPoolManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val soundPool: SoundPool
+    private var soundPool: SoundPool? = null
     private val loadedSounds = mutableMapOf<String, Int>() // path -> soundId
     private val loadingCallbacks = mutableMapOf<Int, (Boolean) -> Unit>() // soundId -> callback
 
     init {
+        ensureSoundPool()
+    }
+
+    /**
+     * Ensures the SoundPool is initialized. Re-creates it if previously released.
+     */
+    private fun ensureSoundPool(): SoundPool {
+        soundPool?.let { return it }
+        
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
         
-        soundPool = SoundPool.Builder()
+        val pool = SoundPool.Builder()
             .setMaxStreams(2)
             .setAudioAttributes(attributes)
             .build()
             
-        soundPool.setOnLoadCompleteListener { _, sampleId, status ->
+        pool.setOnLoadCompleteListener { _, sampleId, status ->
             val success = status == 0
             synchronized(loadingCallbacks) {
                 loadingCallbacks.remove(sampleId)?.invoke(success)
             }
         }
+        
+        soundPool = pool
+        return pool
     }
 
     /**
@@ -47,8 +59,10 @@ class SoundPoolManager @Inject constructor(
         val file = File(path)
         if (!file.exists()) return null
 
+        val pool = ensureSoundPool()
+        
         return suspendCancellableCoroutine { cont ->
-            val soundId = soundPool.load(path, 1)
+            val soundId = pool.load(path, 1)
             
             synchronized(loadingCallbacks) {
                 loadingCallbacks[soundId] = { success ->
@@ -64,18 +78,19 @@ class SoundPoolManager @Inject constructor(
     }
 
     fun play(soundId: Int) {
-        soundPool.play(soundId, 1f, 1f, 0, 0, 1f)
+        soundPool?.play(soundId, 1f, 1f, 0, 0, 1f)
     }
 
     fun unload(path: String) {
         loadedSounds[path]?.let { id ->
-            soundPool.unload(id)
+            soundPool?.unload(id)
             loadedSounds.remove(path)
         }
     }
     
     fun release() {
-        soundPool.release()
+        soundPool?.release()
+        soundPool = null  // Will be re-created on next use
         loadedSounds.clear()
         loadingCallbacks.clear()
     }

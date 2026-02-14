@@ -18,11 +18,6 @@ fun PlaylistScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     
-    LaunchedEffect(Unit) {
-        if (state.totalCards == 0 && !state.isLoading) {
-            viewModel.loadPlaylist(limit = 20)
-        }
-    }
     
     Column(
         modifier = Modifier

@@ -37,10 +37,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.deutschstart.app.ui.content.ContentScreen
+import com.deutschstart.app.ui.grammar.GrammarListScreen
+import com.deutschstart.app.ui.grammar.GrammarDetailScreen
 import com.deutschstart.app.ui.home.HomeViewModel
 import com.deutschstart.app.ui.learning.FlashcardScreen
 import com.deutschstart.app.ui.theme.DeutschStartTheme
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -68,7 +72,8 @@ fun AppNavigation() {
             HomeScreen(
                 onNavigateToContent = { navController.navigate("content") },
                 onNavigateToPractice = { navController.navigate("flashcards") },
-                onNavigateToPlaylist = { navController.navigate("playlist") }
+                onNavigateToPlaylist = { navController.navigate("playlist") },
+                onNavigateToGrammar = { navController.navigate("grammar_list") }
             )
         }
         composable("content") {
@@ -92,6 +97,23 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        composable("grammar_list") {
+            GrammarListScreen(
+                onNavigateToDetail = { topicId ->
+                    navController.navigate("grammar_detail/$topicId")
+                }
+            )
+        }
+        composable(
+            "grammar_detail/{topicId}",
+            arguments = listOf(navArgument("topicId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val topicId = backStackEntry.arguments?.getString("topicId") ?: return@composable
+            GrammarDetailScreen(
+                topicId = topicId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -100,6 +122,7 @@ fun HomeScreen(
     onNavigateToContent: () -> Unit,
     onNavigateToPractice: () -> Unit,
     onNavigateToPlaylist: () -> Unit,
+    onNavigateToGrammar: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -175,9 +198,19 @@ fun HomeScreen(
                     .height(56.dp),
                 enabled = state.totalWords > 0
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
                 Text("Smart Playlist", style = MaterialTheme.typography.titleMedium)
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onNavigateToGrammar,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Icon(Icons.Default.School, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Learn (Grammar)", style = MaterialTheme.typography.titleMedium)
             }
             
             Spacer(Modifier.height(16.dp))

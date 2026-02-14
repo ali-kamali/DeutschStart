@@ -7,7 +7,10 @@ import androidx.room.withTransaction
 import com.deutschstart.app.data.local.AppDatabase
 import com.deutschstart.app.data.local.VocabularyDao
 import com.deutschstart.app.data.local.VocabularyEntity
+import com.deutschstart.app.data.local.GrammarDao
+import com.deutschstart.app.data.local.GrammarTopicEntity
 import com.deutschstart.app.data.remote.ContentApiService
+import com.deutschstart.app.util.LinguisticsEngine
 import com.deutschstart.app.util.ZipUtils
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -26,6 +29,8 @@ class ContentRepository @Inject constructor(
     private val api: ContentApiService,
     private val db: AppDatabase,
     private val dao: VocabularyDao,
+    private val grammarDao: GrammarDao,
+    private val linguisticsEngine: LinguisticsEngine,
     @ApplicationContext private val context: Context
 ) {
     private val prefs: SharedPreferences =
@@ -136,11 +141,30 @@ class ContentRepository @Inject constructor(
 
         val entities = items.map { it.toEntity(contentDir.absolutePath, gson) }
 
+        // Grammar Import
+        val grammarFile = File(contentDir, "grammar.json")
+        val grammarEntities = if (grammarFile.exists()) {
+            val grammarJson = grammarFile.readText()
+            val grammarType = object : TypeToken<List<GrammarJsonItem>>() {}.type
+            val grammarItems: List<GrammarJsonItem> = gson.fromJson(grammarJson, grammarType)
+            grammarItems.map { it.toEntity(gson) }
+        } else {
+            emptyList()
+        }
+
         // Use withTransaction (suspend-safe) instead of runInTransaction
         db.withTransaction {
             dao.deleteAll()
             dao.insertAll(entities)
+            
+            if (grammarEntities.isNotEmpty()) {
+                grammarDao.deleteAll()
+                grammarDao.insertAll(grammarEntities)
+            }
         }
+        
+        // Refresh Linguistics cache
+        linguisticsEngine.reload()
     }
 }
 
@@ -207,6 +231,27 @@ data class VocabularyJsonItem(
             lastReviewedAt = null,
             kaikkiAudioPath = localKaikkiAudioPath,
             kaikkiDataJson = kaikki_data?.let { gson.toJson(it) }
+        )
+
+    }
+}
+
+data class GrammarJsonItem(
+    val id: String,
+    val title: String,
+    val description: String?,
+    val sequence_order: Int,
+    val content: Any?, // List of dicts
+    val exercises: Any? // List of dicts
+) {
+    fun toEntity(gson: Gson): GrammarTopicEntity {
+        return GrammarTopicEntity(
+            id = id,
+            title = title,
+            description = description,
+            sequenceOrder = sequence_order,
+            contentJson = gson.toJson(content),
+            exercisesJson = gson.toJson(exercises)
         )
     }
 }

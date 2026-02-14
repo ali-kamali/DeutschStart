@@ -17,7 +17,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
-import javax.inject.Singleton
+import dagger.hilt.android.scopes.ViewModelScoped
 
 sealed class PlaybackState {
     data object Idle : PlaybackState()
@@ -28,7 +28,7 @@ sealed class PlaybackState {
     data class Error(val message: String) : PlaybackState()
 }
 
-@Singleton
+@ViewModelScoped
 class PlaylistPlayer @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
@@ -72,8 +72,12 @@ class PlaylistPlayer @Inject constructor(
             // Build segment-to-card and type mapping
             buildSegmentMapping(playlistData)
             
-            // Build media source from playlist segments
+            // Build media source with file-existence checks
             val mediaSource = buildMediaSource(playlistData.segments)
+            
+            // Aggressively reset player state which might be stuck from previous instance
+            player.stop()
+            player.clearMediaItems()
             
             player.setMediaSource(mediaSource)
             player.prepare()
@@ -136,7 +140,14 @@ class PlaylistPlayer @Inject constructor(
                 }
 
                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    _playbackState.value = PlaybackState.Error("Playback error: ${error.message}")
+                    // On error, try to skip to next item rather than killing the whole playlist
+                    android.util.Log.e("PlaylistPlayer", "Playback error at index ${player.currentMediaItemIndex}: ${error.message}")
+                    if (player.hasNextMediaItem()) {
+                        player.seekToNextMediaItem()
+                        player.prepare()
+                    } else {
+                        _playbackState.value = PlaybackState.Error("Playback error: ${error.message}")
+                    }
                 }
             })
             
@@ -147,21 +158,32 @@ class PlaylistPlayer @Inject constructor(
         }
     }
     
+    
+    /**
+     * Build media source using DefaultMediaSourceFactory for better resource management.
+     */
     private fun buildMediaSource(segments: List<PlaylistSegment>): MediaSource {
-        val dataSourceFactory = DefaultDataSource.Factory(context)
+        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context)
         val mediaSources = mutableListOf<MediaSource>()
+        
+        // Log segment count to track growth
+        android.util.Log.d("PlaylistPlayer", "Building media source with ${segments.size} segments")
         
         segments.forEach { segment ->
             when (segment) {
                 is PlaylistSegment.Audio -> {
-                    val uri = Uri.parse(segment.path)
-                    val mediaItem = MediaItem.fromUri(uri)
-                    val source = ProgressiveMediaSource.Factory(dataSourceFactory)
-                        .createMediaSource(mediaItem)
-                    mediaSources.add(source)
+                    val file = java.io.File(segment.path)
+                    // Check existence AND non-empty (corrupt file protection)
+                    if (file.exists() && file.length() > 0) {
+                        val mediaItem = MediaItem.fromUri(Uri.fromFile(file))
+                        // Use the factory to create the source - handles resources better
+                        mediaSources.add(mediaSourceFactory.createMediaSource(mediaItem))
+                    } else {
+                        android.util.Log.w("PlaylistPlayer", "Audio file invalid (missing/empty), skipping: ${segment.path}")
+                        mediaSources.add(SilenceMediaSource(100_000L))
+                    }
                 }
                 is PlaylistSegment.Silence -> {
-                    // Create silence media source
                     val silenceDurationUs = segment.durationMs * 1000L
                     val silenceSource = SilenceMediaSource(silenceDurationUs)
                     mediaSources.add(silenceSource)
@@ -169,9 +191,9 @@ class PlaylistPlayer @Inject constructor(
             }
         }
         
-        // Use stable ConcatenatingMediaSource API
         return ConcatenatingMediaSource(*mediaSources.toTypedArray())
     }
+
 
     fun setLoopEnabled(enabled: Boolean) {
         _loopEnabled.value = enabled

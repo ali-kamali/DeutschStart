@@ -268,6 +268,23 @@ class ContentPackager:
         # 3. Write data.json
         with open(self.staging_dir / "vocabulary.json", "w", encoding="utf-8") as f:
             json.dump(pack_data, f, ensure_ascii=False, indent=2)
+
+        # 4. Write grammar.json
+        from app.models.grammar import GrammarTopic
+        grammar_topics = self.db.query(GrammarTopic).order_by(GrammarTopic.sequence_order).all()
+        grammar_data = []
+        for topic in grammar_topics:
+            grammar_data.append({
+                "id": topic.id,
+                "title": topic.title,
+                "description": topic.description,
+                "sequence_order": topic.sequence_order,
+                "content": topic.content_json, # Already list of dicts
+                "exercises": topic.exercises_json
+            })
+            
+        with open(self.staging_dir / "grammar.json", "w", encoding="utf-8") as f:
+            json.dump(grammar_data, f, ensure_ascii=False, indent=2)
             
         # 4. Write manifest
         manifest = {
